@@ -7,13 +7,14 @@ plugins {
 android {
     namespace = "com.esp32phone.agent"
     compileSdk = 35
+    buildToolsVersion = "35.0.0"
 
     defaultConfig {
         applicationId = "com.esp32phone.agent"
         minSdk = 30
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0-dev1"
+        versionCode = 2
+        versionName = "0.1.0-dev2"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         // Release gateway values are NOT provided yet (no real gateway configuration exists).

@@ -5,7 +5,7 @@ import android.bluetooth.BluetoothManager
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
-import android.provider.Settings
+import android.view.inputmethod.InputMethodManager
 import androidx.core.content.ContextCompat
 import com.esp32phone.agent.data.AppPreferences
 import com.esp32phone.agent.data.SecretStore
@@ -170,13 +170,12 @@ public object ReadinessProbe {
     }
 
     private fun inputMethod(context: Context): Capability {
-        val enabled = Settings.Secure.getString(
-            context.contentResolver,
-            Settings.Secure.ENABLED_INPUT_METHODS,
-        ).orEmpty()
-        val ours = "${context.packageName}/.ime.AgentImeService"
-        return if (enabled.contains(ours)) {
-            Capability("ime", "中文输入法", CapabilityState.NOT_IMPLEMENTED, "已选中本输入法，但本构建不含 IME 服务")
+        // Direct reads of ENABLED_INPUT_METHODS are forbidden for targetSdk > 33.
+        // The public IME API reports enabled services; it does not prove selection/focus.
+        val enabled = context.getSystemService(InputMethodManager::class.java)
+            ?.enabledInputMethodList.orEmpty()
+        return if (enabled.any { it.packageName == context.packageName }) {
+            Capability("ime", "中文输入法", CapabilityState.NOT_IMPLEMENTED, "系统列表中有本包输入法，但本构建不含可用 IME 服务")
         } else {
             Capability(
                 "ime",
