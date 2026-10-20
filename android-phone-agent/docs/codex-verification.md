@@ -21,9 +21,20 @@
 
 - 第一检查点 Codex 独立跑110项通过。第二检查点 Pi 报告133项通过并执行7类变异检查，见 checkpoint-2-report.md。
 - 最后审查发现慢 requestStop 返回覆盖新任务、旧 step 领取新 generation permit 两项残留。Pi 收到任务后上游模型服务返回403，未完成修复；Codex接手，补任务身份检查、锁内 expectedGeneration 校验、sink generation 校验与4项回归。
-- Codex 独立重跑完整 :core:test --rerun-tasks：137 tests / 0 failures / 0 errors / 0 skipped，exit0；新增四项回归全部通过。最终云端结果待该版本构建完成补录；真实控制不放行。
+- Codex 独立重跑完整 :core:test --rerun-tasks：137 tests / 0 failures / 0 errors / 0 skipped，exit0；新增四项回归全部通过。最终云端 Actions 39365299502 同样为137项全通过，合并manifest审计成功并生成APK；真实控制不放行。
 - EventLog listener 在提交锁外，不能据此宣称完整并发线性顺序已被证明；AgentCore 后续接入需固定调度并验证任务生命周期。当前锁只保证本地 permit 提交与撤权互斥，不能证明板子收到 STOP 前已停止。
 
 ## 未实现与未验收
 
 MediaProjection、BLE收发、ESP32固件/USB HID、模型HTTP、可选IME和校准尚未实现；无安卓真机，没有硬件停止时延证据。未调用真实模型、未刷写板子、未写参考检出或原始Flash备份。静态 manifest 审计检查无无障碍声明、BLE安装特性可选，最终CI会审计合并manifest。
+
+## 最终 dev3 交付
+
+- 源码提交：`81234fc5d8ecae36a0ae498f8be51bde84babd4f`。
+- 成功构建：https://github.com/ygbhu/esp32-iphone-agent/actions/runs/39365299502 。Artifacts 中 android-agent-debug 和 android-agent-tests 保留14天。
+- APK：0.1.0-dev3 / versionCode3 / 24,504,505 bytes。
+- SHA256：`2cd0daa9cfa49ee30e31cc829ec26f4088fb6754eae05c8fe417c911e6ae5a68`。
+- MuMu dev3：安装 Success；冷启动 Status ok；正常单步 Executed/VERIFYING/假输出1；执行前停止 Stale/STOPPED/假输出0/停止请求1。截图经 Codex 目视复核。
+- dev3 设置页窗口 SECURE 且截图全黑，回到首页后恢复正常显示；测试结束停在本App首页。
+- 本机便于领取的副本：`E:/study/esp32-phone/artifacts/android-phone-agent-0.1.0-dev3.apk`；旁边提供sha256文件。APK、截图和构建目录不提交源码。
+- Pi 已空闲（agent_settled），上游403后未再发实施任务；没有声称聊天结束后仍持续监督。真实硬件及其余产品功能留待下一检查点。
