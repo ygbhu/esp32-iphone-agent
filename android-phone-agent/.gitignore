@@ -1,0 +1,24 @@
+# Toolchain downloads (JDK 17, Gradle 8.11.1, Arduino-ESP32 core) — never committed.
+.tools/
+
+# Supervision runtime, sessions and credentials — never committed, never read by tooling.
+.supervision/
+
+# Gradle / build outputs
+.gradle/
+**/build/
+local.properties
+
+# Signing material
+*.jks
+*.keystore
+
+# IDE
+.idea/
+
+# OS noise
+Thumbs.db
+.DS_Store
+
+# Kotlin compiler session logs
+.kotlin/

@@ -1,0 +1,471 @@
+{
+  "name": "command_ledger",
+  "cache_size": 64,
+  "scenarios": [
+    {
+      "name": "same_id_same_payload",
+      "steps": [
+        {
+          "command_id": 5,
+          "payload": "tap:1",
+          "expect": "EXECUTE"
+        },
+        {
+          "command_id": 5,
+          "payload": "tap:1",
+          "expect": "DUPLICATE"
+        }
+      ]
+    },
+    {
+      "name": "same_id_different_payload",
+      "steps": [
+        {
+          "command_id": 5,
+          "payload": "tap:1",
+          "expect": "EXECUTE"
+        },
+        {
+          "command_id": 5,
+          "payload": "tap:2",
+          "expect": "CONFLICT"
+        }
+      ]
+    },
+    {
+      "name": "stale_after_eviction",
+      "steps": [
+        {
+          "command_id": 1,
+          "payload": "p1",
+          "expect": "EXECUTE"
+        },
+        {
+          "command_id": 2,
+          "payload": "p2",
+          "expect": "EXECUTE"
+        },
+        {
+          "command_id": 3,
+          "payload": "p3",
+          "expect": "EXECUTE"
+        },
+        {
+          "command_id": 4,
+          "payload": "p4",
+          "expect": "EXECUTE"
+        },
+        {
+          "command_id": 5,
+          "payload": "p5",
+          "expect": "EXECUTE"
+        },
+        {
+          "command_id": 6,
+          "payload": "p6",
+          "expect": "EXECUTE"
+        },
+        {
+          "command_id": 7,
+          "payload": "p7",
+          "expect": "EXECUTE"
+        },
+        {
+          "command_id": 8,
+          "payload": "p8",
+          "expect": "EXECUTE"
+        },
+        {
+          "command_id": 9,
+          "payload": "p9",
+          "expect": "EXECUTE"
+        },
+        {
+          "command_id": 10,
+          "payload": "p10",
+          "expect": "EXECUTE"
+        },
+        {
+          "command_id": 11,
+          "payload": "p11",
+          "expect": "EXECUTE"
+        },
+        {
+          "command_id": 12,
+          "payload": "p12",
+          "expect": "EXECUTE"
+        },
+        {
+          "command_id": 13,
+          "payload": "p13",
+          "expect": "EXECUTE"
+        },
+        {
+          "command_id": 14,
+          "payload": "p14",
+          "expect": "EXECUTE"
+        },
+        {
+          "command_id": 15,
+          "payload": "p15",
+          "expect": "EXECUTE"
+        },
+        {
+          "command_id": 16,
+          "payload": "p16",
+          "expect": "EXECUTE"
+        },
+        {
+          "command_id": 17,
+          "payload": "p17",
+          "expect": "EXECUTE"
+        },
+        {
+          "command_id": 18,
+          "payload": "p18",
+          "expect": "EXECUTE"
+        },
+        {
+          "command_id": 19,
+          "payload": "p19",
+          "expect": "EXECUTE"
+        },
+        {
+          "command_id": 20,
+          "payload": "p20",
+          "expect": "EXECUTE"
+        },
+        {
+          "command_id": 21,
+          "payload": "p21",
+          "expect": "EXECUTE"
+        },
+        {
+          "command_id": 22,
+          "payload": "p22",
+          "expect": "EXECUTE"
+        },
+        {
+          "command_id": 23,
+          "payload": "p23",
+          "expect": "EXECUTE"
+        },
+        {
+          "command_id": 24,
+          "payload": "p24",
+          "expect": "EXECUTE"
+        },
+        {
+          "command_id": 25,
+          "payload": "p25",
+          "expect": "EXECUTE"
+        },
+        {
+          "command_id": 26,
+          "payload": "p26",
+          "expect": "EXECUTE"
+        },
+        {
+          "command_id": 27,
+          "payload": "p27",
+          "expect": "EXECUTE"
+        },
+        {
+          "command_id": 28,
+          "payload": "p28",
+          "expect": "EXECUTE"
+        },
+        {
+          "command_id": 29,
+          "payload": "p29",
+          "expect": "EXECUTE"
+        },
+        {
+          "command_id": 30,
+          "payload": "p30",
+          "expect": "EXECUTE"
+        },
+        {
+          "command_id": 31,
+          "payload": "p31",
+          "expect": "EXECUTE"
+        },
+        {
+          "command_id": 32,
+          "payload": "p32",
+          "expect": "EXECUTE"
+        },
+        {
+          "command_id": 33,
+          "payload": "p33",
+          "expect": "EXECUTE"
+        },
+        {
+          "command_id": 34,
+          "payload": "p34",
+          "expect": "EXECUTE"
+        },
+        {
+          "command_id": 35,
+          "payload": "p35",
+          "expect": "EXECUTE"
+        },
+        {
+          "command_id": 36,
+          "payload": "p36",
+          "expect": "EXECUTE"
+        },
+        {
+          "command_id": 37,
+          "payload": "p37",
+          "expect": "EXECUTE"
+        },
+        {
+          "command_id": 38,
+          "payload": "p38",
+          "expect": "EXECUTE"
+        },
+        {
+          "command_id": 39,
+          "payload": "p39",
+          "expect": "EXECUTE"
+        },
+        {
+          "command_id": 40,
+          "payload": "p40",
+          "expect": "EXECUTE"
+        },
+        {
+          "command_id": 41,
+          "payload": "p41",
+          "expect": "EXECUTE"
+        },
+        {
+          "command_id": 42,
+          "payload": "p42",
+          "expect": "EXECUTE"
+        },
+        {
+          "command_id": 43,
+          "payload": "p43",
+          "expect": "EXECUTE"
+        },
+        {
+          "command_id": 44,
+          "payload": "p44",
+          "expect": "EXECUTE"
+        },
+        {
+          "command_id": 45,
+          "payload": "p45",
+          "expect": "EXECUTE"
+        },
+        {
+          "command_id": 46,
+          "payload": "p46",
+          "expect": "EXECUTE"
+        },
+        {
+          "command_id": 47,
+          "payload": "p47",
+          "expect": "EXECUTE"
+        },
+        {
+          "command_id": 48,
+          "payload": "p48",
+          "expect": "EXECUTE"
+        },
+        {
+          "command_id": 49,
+          "payload": "p49",
+          "expect": "EXECUTE"
+        },
+        {
+          "command_id": 50,
+          "payload": "p50",
+          "expect": "EXECUTE"
+        },
+        {
+          "command_id": 51,
+          "payload": "p51",
+          "expect": "EXECUTE"
+        },
+        {
+          "command_id": 52,
+          "payload": "p52",
+          "expect": "EXECUTE"
+        },
+        {
+          "command_id": 53,
+          "payload": "p53",
+          "expect": "EXECUTE"
+        },
+        {
+          "command_id": 54,
+          "payload": "p54",
+          "expect": "EXECUTE"
+        },
+        {
+          "command_id": 55,
+          "payload": "p55",
+          "expect": "EXECUTE"
+        },
+        {
+          "command_id": 56,
+          "payload": "p56",
+          "expect": "EXECUTE"
+        },
+        {
+          "command_id": 57,
+          "payload": "p57",
+          "expect": "EXECUTE"
+        },
+        {
+          "command_id": 58,
+          "payload": "p58",
+          "expect": "EXECUTE"
+        },
+        {
+          "command_id": 59,
+          "payload": "p59",
+          "expect": "EXECUTE"
+        },
+        {
+          "command_id": 60,
+          "payload": "p60",
+          "expect": "EXECUTE"
+        },
+        {
+          "command_id": 61,
+          "payload": "p61",
+          "expect": "EXECUTE"
+        },
+        {
+          "command_id": 62,
+          "payload": "p62",
+          "expect": "EXECUTE"
+        },
+        {
+          "command_id": 63,
+          "payload": "p63",
+          "expect": "EXECUTE"
+        },
+        {
+          "command_id": 64,
+          "payload": "p64",
+          "expect": "EXECUTE"
+        },
+        {
+          "command_id": 65,
+          "payload": "p65",
+          "expect": "EXECUTE"
+        },
+        {
+          "command_id": 66,
+          "payload": "p66",
+          "expect": "EXECUTE"
+        },
+        {
+          "command_id": 67,
+          "payload": "p67",
+          "expect": "EXECUTE"
+        },
+        {
+          "command_id": 68,
+          "payload": "p68",
+          "expect": "EXECUTE"
+        },
+        {
+          "command_id": 69,
+          "payload": "p69",
+          "expect": "EXECUTE"
+        },
+        {
+          "command_id": 70,
+          "payload": "p70",
+          "expect": "EXECUTE"
+        },
+        {
+          "command_id": 70,
+          "payload": "p70",
+          "expect": "DUPLICATE"
+        },
+        {
+          "command_id": 7,
+          "payload": "p7",
+          "expect": "DUPLICATE"
+        },
+        {
+          "command_id": 6,
+          "payload": "p6",
+          "expect": "STALE"
+        },
+        {
+          "command_id": 1,
+          "payload": "p1",
+          "expect": "STALE"
+        }
+      ]
+    },
+    {
+      "name": "increasing_ids",
+      "steps": [
+        {
+          "command_id": 2,
+          "payload": "a",
+          "expect": "EXECUTE"
+        },
+        {
+          "command_id": 3,
+          "payload": "b",
+          "expect": "EXECUTE"
+        },
+        {
+          "command_id": 4,
+          "payload": "c",
+          "expect": "EXECUTE"
+        }
+      ]
+    },
+    {
+      "name": "cache_eviction_keeps_watermark",
+      "steps": [
+        {
+          "command_id": 1,
+          "payload": "a",
+          "expect": "EXECUTE"
+        },
+        {
+          "command_id": 2,
+          "payload": "b",
+          "expect": "EXECUTE"
+        },
+        {
+          "command_id": 3,
+          "payload": "c",
+          "expect": "EXECUTE"
+        },
+        {
+          "command_id": 4,
+          "payload": "d",
+          "expect": "EXECUTE"
+        },
+        {
+          "command_id": 4,
+          "payload": "d",
+          "expect": "DUPLICATE"
+        },
+        {
+          "command_id": 2,
+          "payload": "b",
+          "expect": "DUPLICATE"
+        },
+        {
+          "command_id": 1,
+          "payload": "a",
+          "expect": "DUPLICATE"
+        }
+      ]
+    }
+  ]
+}

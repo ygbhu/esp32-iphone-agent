@@ -1,0 +1,72 @@
+{
+  "name": "handshake",
+  "cases": [
+    {
+      "name": "board_1bc5",
+      "secret_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+      "board_id": "esp32phone-1bc5",
+      "client_nonce_hex": "0101010101010101010101010101010101010101010101010101010101010101",
+      "board_nonce_hex": "0202020202020202020202020202020202020202020202020202020202020202",
+      "features": 15,
+      "transcript_hex": "45333250484e3248020f657370333270686f6e652d31626335010101010101010101010101010101010101010101010101010101010101010102020202020202020202020202020202020202020202020202020202020202020f000000",
+      "transcript_sha256_hex": "343cc7130976118c9d0f3233cd6dd0f86350b8fae7aa9fe0b5e90d3caccc27a3",
+      "board_proof_hex": "43f1ae6b53f5f1738887e5dfaeebfa37c5b8183e5f4132f66fa258c80cc682de",
+      "app_proof_hex": "9d908c53f00825a60e7c3c825899813d40f344309b84028a1f456e7296650ca9",
+      "session_id_hex": "9b4697bc8d2c41f6",
+      "keys": {
+        "app_normal": "5cfb1e987b804b54c9322498494cff180c5bdd4641ff3e6f5d16b240a75cff99",
+        "board_normal": "0019b1e798bd3626eefc0e6942cdd974208ca4816efd8339932741b09c8e4a24",
+        "app_control": "1d492da45252628b52d5d131fd78f25072d02159223e929dd70e7cc44b981333",
+        "board_control": "6e220527be25c3307a3fce72d3d742ac15e3a503d4ee10e777f20d57a862e99c"
+      },
+      "nonce_prefixes": {
+        "app_normal": "642367bfc15d64bd",
+        "board_normal": "de0f35f3f8ca696e",
+        "app_control": "ae9ab605c1b44bcf",
+        "board_control": "49bc50742b6fec01"
+      }
+    },
+    {
+      "name": "board_alt_features",
+      "secret_hex": "819e1c02d04c9f7baf5d0a1c8943547b468fabcb88a154794a96f97eec7def09",
+      "board_id": "e32-7f3a90",
+      "client_nonce_hex": "030a11181f262d343b424950575e656c737a81888f969da4abb2b9c0c7ced5dc",
+      "board_nonce_hex": "05101b26313c47525d68737e89949faab5c0cbd6e1ecf7020d18232e39444f5a",
+      "features": 0,
+      "transcript_hex": "45333250484e3248020a6533322d376633613930030a11181f262d343b424950575e656c737a81888f969da4abb2b9c0c7ced5dc05101b26313c47525d68737e89949faab5c0cbd6e1ecf7020d18232e39444f5a00000000",
+      "transcript_sha256_hex": "0a7b891169fefc20dbd9e31d61636072e91909443a98be588888b80f3f5f04d7",
+      "board_proof_hex": "19cf1e72afdc2a310b344c65a7fe38d9747fc44825d6d0834e79c5d538117b3c",
+      "app_proof_hex": "641d05b1e18df9257bd9dd2209b328151aafcceb88000a9324c11577362efc5d",
+      "session_id_hex": "8e6afbd814d07ddc",
+      "keys": {
+        "app_normal": "010a0ddb2101009e1fb543164d43a627c1a33892b4c935be843679ef4c87e221",
+        "board_normal": "e2614151b259b73cbcbd54e026cce2706afb65df8f4e48d3d467db643c71f166",
+        "app_control": "ff6ad6e1f04e690c5c18ef633d0a9685b610bd13d6d439f1f1f6fe82970eae39",
+        "board_control": "6f81666bf15dc4685897afd36f6cc4da7ef642aa06bf8022902186048a1dc42f"
+      },
+      "nonce_prefixes": {
+        "app_normal": "932547e0cddd0fb0",
+        "board_normal": "89bf8ecd4df09bd7",
+        "app_control": "27fa5cdbfc0919cc",
+        "board_control": "f915aaa6d68f7c50"
+      }
+    }
+  ],
+  "negative_proofs": [
+    {
+      "name": "board_proof_used_as_app_proof",
+      "app_proof_hex": "43f1ae6b53f5f1738887e5dfaeebfa37c5b8183e5f4132f66fa258c80cc682de",
+      "expect": "AUTH_FAILED"
+    },
+    {
+      "name": "tampered_transcript_nonce",
+      "board_proof_hex": "f30811b988ae8ed58c74789214008791fb5e46aab37577a32a1c92daf8688031",
+      "expect": "AUTH_FAILED"
+    },
+    {
+      "name": "wrong_secret",
+      "board_proof_hex": "985795679bc35f44a220ecf23ad65c84f62bff71a590a2924c717685731a5054",
+      "expect": "AUTH_FAILED"
+    }
+  ]
+}

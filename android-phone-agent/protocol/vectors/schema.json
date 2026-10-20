@@ -1,0 +1,88 @@
+{
+  "name": "schema_constants",
+  "wire_version": 2,
+  "fragment_header_len": 8,
+  "envelope_header_len": 20,
+  "gcm_tag_len": 16,
+  "flags": {
+    "protected": 1,
+    "plaintext": 0
+  },
+  "limits": {
+    "normal": 1024,
+    "handshake": 512,
+    "control": 128
+  },
+  "uuid": {
+    "service": "50e00000-7cc6-47b9-8e6f-6f59d90e0000",
+    "info": "50e00000-7cc6-47b9-8e6f-6f59d90e0001",
+    "command": "50e00000-7cc6-47b9-8e6f-6f59d90e0002",
+    "event": "50e00000-7cc6-47b9-8e6f-6f59d90e0003",
+    "control": "50e00000-7cc6-47b9-8e6f-6f59d90e0004"
+  },
+  "transcript_magic_hex": "45333250484e3248",
+  "proof_labels": {
+    "board": "esp32phone/v2/proof/board",
+    "app": "esp32phone/v2/proof/app"
+  },
+  "hkdf": {
+    "session_info": "esp32phone/v2/session",
+    "key_info": {
+      "app_normal": "esp32phone/v2/key/app-normal",
+      "board_normal": "esp32phone/v2/key/board-normal",
+      "app_control": "esp32phone/v2/key/app-control",
+      "board_control": "esp32phone/v2/key/board-control"
+    },
+    "nonce_info": {
+      "app_normal": "esp32phone/v2/nonce/app-normal",
+      "board_normal": "esp32phone/v2/nonce/board-normal",
+      "app_control": "esp32phone/v2/nonce/app-control",
+      "board_control": "esp32phone/v2/nonce/board-control"
+    }
+  },
+  "message_types": {
+    "client_hello": 1,
+    "board_hello": 2,
+    "app_auth": 3,
+    "auth_ok": 4,
+    "capabilities_request": 10,
+    "capabilities": 11,
+    "heartbeat": 20,
+    "heartbeat_ack": 21,
+    "action": 30,
+    "accepted": 31,
+    "started": 32,
+    "done": 33,
+    "rejected": 34,
+    "cancelled": 35,
+    "error": 36,
+    "stop": 40,
+    "stopped": 41,
+    "query_result_request": 50,
+    "query_result": 51,
+    "status": 60
+  },
+  "error_codes": {
+    "OK": 0,
+    "BAD_VERSION": 1,
+    "BAD_FRAME": 2,
+    "FRAGMENT_TIMEOUT": 3,
+    "AUTH_FAILED": 4,
+    "NOT_AUTHENTICATED": 5,
+    "REPLAY_DETECTED": 6,
+    "UNKNOWN_TYPE": 7,
+    "INVALID_JSON": 8,
+    "INVALID_ACTION": 9,
+    "ARG_OUT_OF_RANGE": 10,
+    "BUSY": 11,
+    "COMMAND_CONFLICT": 12,
+    "COMMAND_STALE": 13,
+    "USB_UNAVAILABLE": 14,
+    "CALIBRATION_REQUIRED": 15,
+    "RELEASE_FAILED": 16,
+    "BUDGET_EXCEEDED": 17,
+    "NOT_CONTROLLER": 18,
+    "RATE_LIMITED": 19,
+    "TOO_LARGE": 20
+  }
+}

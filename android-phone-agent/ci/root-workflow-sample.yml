@@ -1,0 +1,64 @@
+# Root workflow sample (for the ESP32/iPhone repository)
+
+The Android implementation lives in the `android-phone-agent/` subdirectory of the target
+repository. GitHub only discovers workflows in the repository-root `.github/workflows/`, so the
+root workflow must call into this directory. Reusable workflows cannot live in a subdirectory,
+but **composite actions can** — that is why `ci/action.yml` exists.
+
+Paste the following as `<repo-root>/.github/workflows/android-agent.yml` (adjust the branch
+filter to the development branch). Codex owns this file; this copy is only a reference.
+
+```yaml
+name: android-agent
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["codex/android-agent-foundation"]
+    paths:
+      - "android-phone-agent/**"
+  pull_request:
+    paths:
+      - "android-phone-agent/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-agent-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build APK + run protocol/agent tests
+        uses: ./android-phone-agent/ci
+
+      # Artifacts are uploaded by the composite action itself
+      # (android-debug-apk, android-unit-test-reports).
+```
+
+## What the build does
+
+1. Installs JDK 17 (Temurin), Android SDK platform 35 + build-tools 35.0.0, Gradle cache.
+2. `python3 protocol/tools/gen_vectors.py --check` — the shared wire-format vectors must be
+   byte-identical to the committed files (Kotlin and C++ both consume them).
+3. `./gradlew :core:test` — pure-Kotlin protocol/agent tests (no Android SDK required).
+4. `./gradlew :app:assembleDebug` — the Compose APK.
+5. `ci/audit-manifest.sh` — fails the build if the app declares accessibility, marks BLE as a
+   required feature, contains an ADB/root exec path, or gates on device brand/model.
+6. Uploads the debug APK (+ sha256) and the JUnit reports.
+
+## Notes and limits
+
+- The Android SDK licenses are accepted by the CI setup action on the runner. That is the
+  user's decision for the cloud build; this repository never accepts them locally and never
+  commits an Android SDK.
+- Only the `debug` build is produced: release signing keys are not in the repository.
+- Build success is **not** hardware verification. BLE, USB HID, MediaProjection and the IME are
+  not implemented in this checkpoint; see `docs/implementation-status.md`.
+- No job pushes, tags, publishes or deploys anything.

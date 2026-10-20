@@ -1,0 +1,92 @@
+{
+  "name": "envelope",
+  "handshake_case": "board_1bc5",
+  "cases": [
+    {
+      "name": "auth_ok_board_normal_seq1",
+      "channel": "board_normal",
+      "session_id_hex": "9b4697bc8d2c41f6",
+      "message_type": 4,
+      "sequence": 1,
+      "command_id": 0,
+      "payload_utf8": "{\"t\":\"auth_ok\",\"session_id\":\"9b4697bc8d2c41f6\"}",
+      "expected_aad_hex": "02049b4697bc8d2c41f601000000000000002f00",
+      "expected_nonce_hex": "de0f35f3f8ca696e01000000",
+      "expected_sealed_hex": "02049b4697bc8d2c41f601000000000000002f00b31043834a4cb9f021edfd77a111dca5337c5c8df0709ddef96edde00e6c19d6dbab142a725f38146b6fc85625ae45d54a92816fb333aec4c28051306da9ba"
+    },
+    {
+      "name": "action_app_normal_seq1",
+      "channel": "app_normal",
+      "session_id_hex": "9b4697bc8d2c41f6",
+      "message_type": 30,
+      "sequence": 1,
+      "command_id": 7,
+      "payload_utf8": "{\"op\":\"tap\",\"x_counts\":2048,\"y_counts\":1024,\"duration_ms\":80}",
+      "expected_aad_hex": "021e9b4697bc8d2c41f601000000070000003d00",
+      "expected_nonce_hex": "642367bfc15d64bd01000000",
+      "expected_sealed_hex": "021e9b4697bc8d2c41f601000000070000003d00afe2fd2799ef326ec5cc7ea9cb00bb82e24fa0b086568fe6cf95417559d38e628c7e0b2d79ff8ffffe7d9b81ad6585df93b8887fca6dd51b48d4d907f4cc7630187043b97b7e7de406055cf750"
+    },
+    {
+      "name": "stop_app_control_seq3",
+      "channel": "app_control",
+      "session_id_hex": "9b4697bc8d2c41f6",
+      "message_type": 40,
+      "sequence": 3,
+      "command_id": 8,
+      "payload_utf8": "{\"t\":\"stop\",\"reason\":\"user\"}",
+      "expected_aad_hex": "02289b4697bc8d2c41f603000000080000001c00",
+      "expected_nonce_hex": "ae9ab605c1b44bcf03000000",
+      "expected_sealed_hex": "02289b4697bc8d2c41f603000000080000001c000b98689616950c0c7aecb0dc9c68f20369998b5b925ac50d7e00d01f58e0bcc6db04416129456c6fddf503dc"
+    },
+    {
+      "name": "stopped_board_control_seq3",
+      "channel": "board_control",
+      "session_id_hex": "9b4697bc8d2c41f6",
+      "message_type": 41,
+      "sequence": 3,
+      "command_id": 8,
+      "payload_utf8": "{\"t\":\"stopped\",\"released\":true,\"release_sent\":true}",
+      "expected_aad_hex": "02299b4697bc8d2c41f603000000080000003300",
+      "expected_nonce_hex": "49bc50742b6fec0103000000",
+      "expected_sealed_hex": "02299b4697bc8d2c41f60300000008000000330001b275c516aab3d7e60258e36609c2eb640cac9b0e1909331f34f960b85ac1de6578b57a87ab1939e88c2f40b1bdba673f1cae08d64a3dd74c73284b5643c9c5bd5426"
+    }
+  ],
+  "negative_sealed": [
+    {
+      "name": "auth_ok_board_normal_seq1_tag_flip",
+      "channel": "board_normal",
+      "expected_sealed_hex": "02049b4697bc8d2c41f601000000000000002f00b31043834a4cb9f021edfd77a111dca5337c5c8df0709ddef96edde00e6c19d6dbab142a725f38146b6fc85625ae45d54a92816fb333aec4c28051306da9bb",
+      "expect": "AUTH_FAILED"
+    },
+    {
+      "name": "auth_ok_board_normal_seq1_aad_flip",
+      "channel": "board_normal",
+      "expected_sealed_hex": "02049b4697bc8d2c41f601000000000000012f00b31043834a4cb9f021edfd77a111dca5337c5c8df0709ddef96edde00e6c19d6dbab142a725f38146b6fc85625ae45d54a92816fb333aec4c28051306da9ba",
+      "expect": "AUTH_FAILED"
+    },
+    {
+      "name": "auth_ok_board_normal_seq1_truncated_tag",
+      "channel": "board_normal",
+      "expected_sealed_hex": "02049b4697bc8d2c41f601000000000000002f00b31043834a4cb9f021edfd77a111dca5337c5c8df0709ddef96edde00e6c19d6dbab142a725f38146b6fc85625ae45d54a92816fb333aec4c28051306da9",
+      "expect": "BAD_FRAME"
+    },
+    {
+      "name": "action_app_normal_seq1_tag_flip",
+      "channel": "app_normal",
+      "expected_sealed_hex": "021e9b4697bc8d2c41f601000000070000003d00afe2fd2799ef326ec5cc7ea9cb00bb82e24fa0b086568fe6cf95417559d38e628c7e0b2d79ff8ffffe7d9b81ad6585df93b8887fca6dd51b48d4d907f4cc7630187043b97b7e7de406055cf751",
+      "expect": "AUTH_FAILED"
+    },
+    {
+      "name": "action_app_normal_seq1_aad_flip",
+      "channel": "app_normal",
+      "expected_sealed_hex": "021e9b4697bc8d2c41f601000000070000013d00afe2fd2799ef326ec5cc7ea9cb00bb82e24fa0b086568fe6cf95417559d38e628c7e0b2d79ff8ffffe7d9b81ad6585df93b8887fca6dd51b48d4d907f4cc7630187043b97b7e7de406055cf750",
+      "expect": "AUTH_FAILED"
+    },
+    {
+      "name": "action_app_normal_seq1_truncated_tag",
+      "channel": "app_normal",
+      "expected_sealed_hex": "021e9b4697bc8d2c41f601000000070000003d00afe2fd2799ef326ec5cc7ea9cb00bb82e24fa0b086568fe6cf95417559d38e628c7e0b2d79ff8ffffe7d9b81ad6585df93b8887fca6dd51b48d4d907f4cc7630187043b97b7e7de406055cf7",
+      "expect": "BAD_FRAME"
+    }
+  ]
+}

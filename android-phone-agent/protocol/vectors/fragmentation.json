@@ -1,0 +1,206 @@
+{
+  "name": "fragmentation",
+  "cases": [
+    {
+      "name": "mtu23_12B_single",
+      "mtu": 23,
+      "transfer_id": 1,
+      "flags": 0,
+      "payload_hex": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "expected_fragments_hex": [
+        "0200010000010c00aaaaaaaaaaaaaaaaaaaaaaaa"
+      ]
+    },
+    {
+      "name": "mtu23_30B_split",
+      "mtu": 23,
+      "transfer_id": 7,
+      "flags": 0,
+      "payload_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d",
+      "expected_fragments_hex": [
+        "0200070000031e00000102030405060708090a0b",
+        "0200070001031e000c0d0e0f1011121314151617",
+        "0200070002031e0018191a1b1c1d"
+      ]
+    },
+    {
+      "name": "mtu23_129B",
+      "mtu": 23,
+      "transfer_id": 9,
+      "flags": 0,
+      "payload_hex": "5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a",
+      "expected_fragments_hex": [
+        "02000900000b81005a5a5a5a5a5a5a5a5a5a5a5a",
+        "02000900010b81005a5a5a5a5a5a5a5a5a5a5a5a",
+        "02000900020b81005a5a5a5a5a5a5a5a5a5a5a5a",
+        "02000900030b81005a5a5a5a5a5a5a5a5a5a5a5a",
+        "02000900040b81005a5a5a5a5a5a5a5a5a5a5a5a",
+        "02000900050b81005a5a5a5a5a5a5a5a5a5a5a5a",
+        "02000900060b81005a5a5a5a5a5a5a5a5a5a5a5a",
+        "02000900070b81005a5a5a5a5a5a5a5a5a5a5a5a",
+        "02000900080b81005a5a5a5a5a5a5a5a5a5a5a5a",
+        "02000900090b81005a5a5a5a5a5a5a5a5a5a5a5a",
+        "020009000a0b81005a5a5a5a5a5a5a5a5a"
+      ]
+    },
+    {
+      "name": "mtu185_300B",
+      "mtu": 185,
+      "transfer_id": 2,
+      "flags": 0,
+      "payload_hex": "111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111",
+      "expected_fragments_hex": [
+        "0200020000022c01111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111",
+        "0200020001022c01111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111"
+      ]
+    },
+    {
+      "name": "mtu517_max_handshake",
+      "mtu": 517,
+      "transfer_id": 3,
+      "flags": 0,
+      "payload_hex": "c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3",
+      "expected_fragments_hex": [
+        "0200030000020002c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3",
+        "0200030001020002c3c3c3c3c3c3"
+      ]
+    },
+    {
+      "name": "zero_payload",
+      "mtu": 23,
+      "transfer_id": 4,
+      "flags": 0,
+      "payload_hex": "",
+      "expected_fragments_hex": [
+        "0200040000010000"
+      ]
+    }
+  ],
+  "negative_fragments": [
+    {
+      "name": "bad_wire_version",
+      "reason": "BAD_VERSION",
+      "fragment_hex": "030001000001040061626364"
+    },
+    {
+      "name": "reserved_flag_bit_set",
+      "reason": "BAD_FRAME",
+      "fragment_hex": "020201000001040061626364"
+    },
+    {
+      "name": "fragment_count_zero",
+      "reason": "BAD_FRAME",
+      "fragment_hex": "020001000000040061626364"
+    },
+    {
+      "name": "total_bytes_exceeds_normal_limit",
+      "reason": "TOO_LARGE",
+      "fragment_hex": "020105000001010461626364"
+    },
+    {
+      "name": "fragment_longer_than_declared_total",
+      "reason": "BAD_FRAME",
+      "fragment_hex": "020001000001020061626364"
+    }
+  ],
+  "assembler_sequences": [
+    {
+      "name": "out_of_order_then_correct",
+      "transfer_id": 21,
+      "mtu": 23,
+      "payload_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d",
+      "steps": [
+        {
+          "fragment_index": 1,
+          "expect": "BAD_FRAME"
+        },
+        {
+          "fragment_index": 0,
+          "expect": "INCOMPLETE"
+        },
+        {
+          "fragment_index": 1,
+          "expect": "INCOMPLETE"
+        },
+        {
+          "fragment_index": 2,
+          "expect": "COMPLETE"
+        }
+      ]
+    },
+    {
+      "name": "duplicate_index_rejected",
+      "transfer_id": 22,
+      "mtu": 23,
+      "payload_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d",
+      "steps": [
+        {
+          "fragment_index": 0,
+          "expect": "INCOMPLETE"
+        },
+        {
+          "fragment_index": 0,
+          "expect": "BAD_FRAME"
+        }
+      ]
+    },
+    {
+      "name": "restart_after_duplicate_index",
+      "transfer_id": 22,
+      "mtu": 23,
+      "payload_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d",
+      "steps": [
+        {
+          "fragment_index": 0,
+          "expect": "INCOMPLETE"
+        },
+        {
+          "fragment_index": 0,
+          "expect": "BAD_FRAME"
+        },
+        {
+          "fragment_index": 0,
+          "expect": "INCOMPLETE"
+        },
+        {
+          "fragment_index": 1,
+          "expect": "INCOMPLETE"
+        },
+        {
+          "fragment_index": 2,
+          "expect": "COMPLETE"
+        }
+      ]
+    },
+    {
+      "name": "transfer_switch_midway",
+      "transfer_id": 23,
+      "mtu": 23,
+      "payload_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d",
+      "steps": [
+        {
+          "fragment_index": 0,
+          "expect": "INCOMPLETE"
+        },
+        {
+          "transfer_id": 24,
+          "fragment_index": 0,
+          "expect": "BAD_FRAME"
+        }
+      ]
+    },
+    {
+      "name": "short_middle_fragment_not_padded",
+      "transfer_id": 25,
+      "mtu": 23,
+      "payload_hex": "000102030405060708090a0b0c",
+      "steps": [
+        {
+          "fragment_index": 0,
+          "expect": "BAD_FRAME",
+          "truncate_content_to": 1
+        }
+      ]
+    }
+  ]
+}

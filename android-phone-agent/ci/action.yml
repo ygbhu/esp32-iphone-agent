@@ -1,0 +1,90 @@
+name: android-phone-agent build
+description: >
+  Builds the Android agent APK and runs the pure-Kotlin protocol/agent unit tests.
+  Designed to be called from a repository-root workflow as
+  `uses: ./android-phone-agent/ci` (composite actions may live in subdirectories,
+  reusable workflows may not).
+
+inputs:
+  gradle-args:
+    description: Extra arguments passed to every Gradle invocation.
+    required: false
+    default: "--no-daemon --console=plain"
+  skip-vectors:
+    description: Skip the Python vector reproducibility check (set to "true" only if python3 is unavailable).
+    required: false
+    default: "false"
+
+outputs:
+  apk-path:
+    description: Path to the debug APK (relative to the repository root).
+    value: ${{ steps.paths.outputs.apk }}
+
+runs:
+  using: composite
+  steps:
+    - name: Set up JDK 17 (Temurin)
+      uses: actions/setup-java@v4
+      with:
+        distribution: temurin
+        java-version: "17"
+
+    - name: Set up Android SDK
+      uses: android-actions/setup-android@v3
+      with:
+        packages: "platforms;android-35 build-tools;35.0.0 platform-tools"
+
+    - name: Set up Gradle
+      uses: gradle/actions/setup-gradle@v4
+
+    - name: Verify protocol vectors are reproducible
+      if: inputs.skip-vectors != 'true'
+      shell: bash
+      run: |
+        python3 -m pip install --quiet 'cryptography>=42'
+        python3 android-phone-agent/protocol/tools/gen_vectors.py --check
+
+    - name: Unit tests (pure Kotlin core)
+      shell: bash
+      working-directory: android-phone-agent/android
+      run: ./gradlew :core:test ${{ inputs.gradle-args }}
+
+    - name: Assemble debug APK
+      shell: bash
+      working-directory: android-phone-agent/android
+      run: ./gradlew :app:assembleDebug ${{ inputs.gradle-args }}
+
+    - name: Manifest audit
+      shell: bash
+      working-directory: android-phone-agent
+      run: bash ci/audit-manifest.sh
+
+    - name: Resolve artifact paths
+      id: paths
+      shell: bash
+      run: |
+        apk=$(ls android-phone-agent/android/app/build/outputs/apk/debug/*.apk | head -n1)
+        echo "apk=$apk" >> "$GITHUB_OUTPUT"
+        sha256sum "$apk" | tee "$apk.sha256"
+
+    - name: Upload APK
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: android-debug-apk
+        path: |
+          android-phone-agent/android/app/build/outputs/apk/debug/*.apk
+          android-phone-agent/android/app/build/outputs/apk/debug/*.sha256
+        if-no-files-found: warn
+        retention-days: 14
+
+    - name: Upload unit test reports
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: android-unit-test-reports
+        path: |
+          android-phone-agent/android/core/build/reports/tests/**
+          android-phone-agent/android/core/build/test-results/**
+        if-no-files-found: warn
+        retention-days: 14

@@ -1,0 +1,83 @@
+name: android-ci
+
+# Standalone CI for when android-phone-agent is its own repository.
+# When this directory lives inside a larger repository, the root workflow must use
+# `uses: ./android-phone-agent/ci` (composite action) instead — see ci/root-workflow-sample.yml.
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "android/**"
+      - "protocol/**"
+      - "ci/**"
+      - "docs/**"
+  push:
+    branches: ["codex/android-agent-foundation"]
+    paths:
+      - "android/**"
+      - "protocol/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17 (Temurin)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: "platforms;android-35 build-tools;35.0.0 platform-tools"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Verify protocol vectors are reproducible
+        run: |
+          python3 -m pip install --quiet 'cryptography>=42'
+          python3 protocol/tools/gen_vectors.py --check
+
+      - name: Unit tests (pure Kotlin core, shared vectors)
+        working-directory: android
+        run: ./gradlew :core:test --no-daemon --console=plain
+
+      - name: Assemble debug APK
+        working-directory: android
+        run: ./gradlew :app:assembleDebug --no-daemon --console=plain
+
+      - name: Manifest audit (no accessibility, BLE not required)
+        run: bash ci/audit-manifest.sh
+
+      - name: Upload APK
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-debug-apk
+          path: android/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Upload unit test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-unit-test-reports
+          path: |
+            android/core/build/reports/tests/**
+            android/core/build/test-results/**
+          if-no-files-found: warn
+          retention-days: 14
