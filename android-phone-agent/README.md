@@ -1,7 +1,7 @@
 # 安卓手机 Agent（ESP32-S3 USB HID）
 
 原生 Kotlin + Compose 的安卓 App，配合 ESP32-S3 板子作为 USB HID 输入执行器。
-手机负责截图（MediaProjection）与调用用户自己的视觉模型网关；板子负责 BLE 收指令、
+手机负责截图（MediaProjection）与使用用户填写的 Key 调用预置模型网关；板子负责 BLE 收指令、
 USB HID 产出鼠标/键盘输入。**不使用无障碍服务、ADB、Root 或电脑常驻 Agent。**
 
 - 设计基线：`../plans/android-agent-development-plan.md`、`../plans/android-agent-protocol.md`、
@@ -14,7 +14,7 @@ USB HID 产出鼠标/键盘输入。**不使用无障碍服务、ADB、Root 或�
 
 ## 当前状态（一句话）
 
-**协议编解码与 Agent 状态机有真实单元测试（110 项通过），APK 源码与 CI 已就绪但本机未编译，
+**协议编解码与 Agent 状态机有真实单元测试（137 项通过），云端 CI 构建与 MuMu 基础验证已通过，
 固件、BLE、HID、截图、IME、真机全部未实现或未验证。控制保持禁用。**
 
 ## 目录

@@ -66,7 +66,7 @@ Codex 2026-10-20 更新：第二检查点与最后边界修复见 `codex-verific
 > Pi 不再修改这四个文件；下面描述的是交接时的状态，以 Codex 修改后的版本为准。
 
 - 中文 Compose 界面：首页（真实就绪状态）、设备、设置、任务、测试五个入口。
-- `ReadinessProbe`：逐项实际查询（BLE 特性/适配器/权限、绑定凭证、录屏、Key+网关配置、
+- `ReadinessProbe`：逐项实际查询（BLE 特性/适配器/权限、绑定凭证、录屏、Key（服务地址和模型由构建预置）、
   输入法、校准）。**没有"默认就绪"分支**，未实现能力一律 `NOT_IMPLEMENTED` 并阻塞任务。
 - `SecretStore`：Android Keystore AES-256-GCM 加密保存模型 Key 与板子绑定凭证（分开存储）。
 - `AppPreferences`：非敏感配置；备份/设备迁移全部排除（`data_extraction_rules.xml`、
@@ -89,7 +89,7 @@ Codex 2026-10-20 更新：第二检查点与最后边界修复见 `codex-verific
 | MediaProjection 截图 | 无前台服务、无 ImageReader | 录屏：未实现 |
 | BLE 扫描/连接/握手/分片收发 | 只有协议编解码与测试向量，无 Android BLE 调用 | 蓝牙：未实现（或无 BLE 特性时"不可用"） |
 | USB HID 输出 | 无固件、无 App 侧动作下发 | 板子绑定：需要操作/未实现 |
-| 模型请求客户端 | 无 HTTP 客户端；`BuildConfig` 网关地址为空 | 模型 Key：需要操作/未实现 |
+| 模型请求客户端 | 无 HTTP 客户端；服务地址和模型已预置，用户只填写 Key | 模型 Key：需要操作/未实现 |
 | 中文 IME | 没有 `InputMethodService`（manifest 也未声明） | 中文输入：未实现 |
 | 坐标校准 | 无校准界面，`UncalibratedMapper` 抛错 | 校准：需要操作 |
 | 任务执行 | `开始任务` 按钮 `enabled = report.canLaunchTask`，恒为 false | 任务：不可执行并列出阻塞原因 |

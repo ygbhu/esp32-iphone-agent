@@ -167,9 +167,9 @@ fun DeviceScreen(viewModel: AgentViewModel) {
 
 @Composable
 fun SettingsScreen(viewModel: AgentViewModel) {
-    SectionTitle("模型与网关")
+    SectionTitle("访问密钥")
     Text(
-        "Key 使用 Android Keystore 加密保存；明文不进入日志、备份或截图。发布配置尚未提供，下面的地址/模型为开发用。",
+        "填写你的 Key 即可，无需配置服务地址或模型。Key 使用 Android Keystore 加密保存在本机。",
         style = MaterialTheme.typography.bodySmall,
     )
 
@@ -198,30 +198,6 @@ fun SettingsScreen(viewModel: AgentViewModel) {
             modifier = Modifier.padding(start = 8.dp),
         ) { Text("清除 Key") }
     }
-
-    var endpoint by remember { mutableStateOf(viewModel.endpoint) }
-    OutlinedTextField(
-        value = endpoint,
-        onValueChange = { endpoint = it },
-        label = { Text("网关地址（开发用，可留空）") },
-        modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
-        singleLine = true,
-    )
-    var model by remember { mutableStateOf(viewModel.model) }
-    OutlinedTextField(
-        value = model,
-        onValueChange = { model = it },
-        label = { Text("模型名（开发用，可留空）") },
-        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-        singleLine = true,
-    )
-    Button(
-        onClick = {
-            viewModel.saveEndpoint(endpoint)
-            viewModel.saveModel(model)
-        },
-        modifier = Modifier.padding(top = 8.dp),
-    ) { Text("保存高级配置") }
 
     Text(
         "连通性测试按钮将在模型客户端实现后提供；现在不会发出任何网络请求。",

@@ -25,16 +25,6 @@ class AgentViewModel(application: Application) : AndroidViewModel(application) {
     var maskedKey: String? by mutableStateOf(app.secrets.maskedApiKey())
         private set
 
-    var endpoint: String by mutableStateOf(
-        app.preferences.endpointOverride.ifEmpty { com.esp32phone.agent.BuildConfig.DEFAULT_ENDPOINT },
-    )
-        private set
-
-    var model: String by mutableStateOf(
-        app.preferences.modelOverride.ifEmpty { com.esp32phone.agent.BuildConfig.DEFAULT_MODEL },
-    )
-        private set
-
     var boardId: String by mutableStateOf(app.preferences.boundBoardId)
         private set
 
@@ -59,27 +49,6 @@ class AgentViewModel(application: Application) : AndroidViewModel(application) {
     fun clearKey() {
         app.secrets.clearApiKey()
         statusMessage = "已清除 Key"
-        refresh()
-    }
-
-    fun saveEndpoint(value: String) {
-        val normalized = value.trim()
-        val changed = normalized != endpoint
-        if (changed) app.secrets.clearApiKey()
-        app.preferences.endpointOverride = normalized
-        endpoint = app.preferences.endpointOverride
-        statusMessage = when {
-            changed -> "网关地址已修改，旧 Key 已清除；请确认新地址后重新填写 Key"
-            normalized.isBlank() -> "已清空网关地址（未配置）"
-            else -> "已保存开发用网关地址"
-        }
-        refresh()
-    }
-
-    fun saveModel(value: String) {
-        app.preferences.modelOverride = value
-        model = app.preferences.modelOverride
-        statusMessage = if (value.isBlank()) "已清空模型名（未配置）" else "已保存开发用模型名"
         refresh()
     }
 

@@ -13,14 +13,13 @@ android {
         applicationId = "com.esp32phone.agent"
         minSdk = 30
         targetSdk = 35
-        versionCode = 3
-        versionName = "0.1.0-dev3"
+        versionCode = 4
+        versionName = "0.1.0-dev4"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        // Release gateway values are NOT provided yet (no real gateway configuration exists).
-        // The dev build exposes them in 高级设置 so nothing pretends to be connected.
-        buildConfigField("String", "DEFAULT_ENDPOINT", "\"\"")
-        buildConfigField("String", "DEFAULT_MODEL", "\"\"")
+        // Public service configuration; user credentials are entered only in the app.
+        buildConfigField("String", "DEFAULT_ENDPOINT", "\"https://api.aibugboom.com/v1\"")
+        buildConfigField("String", "DEFAULT_MODEL", "\"deepseek-v4.1-flash\"")
     }
 
     buildFeatures {

@@ -51,7 +51,7 @@ public object ReadinessProbe {
             add(bluetooth(context))
             add(deviceBinding(context, preferences, secrets))
             add(screenCapture())
-            add(modelKey(context, preferences, secrets))
+            add(modelKey(secrets))
             add(inputMethod(context))
             add(calibration(context, preferences))
         }
@@ -146,9 +146,9 @@ public object ReadinessProbe {
         "本构建未包含 MediaProjection 前台服务，不能截图",
     )
 
-    private fun modelKey(context: Context, preferences: AppPreferences, secrets: SecretStore): Capability {
-        val endpoint = preferences.endpointOverride.ifEmpty { BuildConfigEndpoint.DEFAULT }
-        val model = preferences.modelOverride.ifEmpty { BuildConfigEndpoint.MODEL }
+    private fun modelKey(secrets: SecretStore): Capability {
+        val endpoint = BuildConfigEndpoint.DEFAULT
+        val model = BuildConfigEndpoint.MODEL
         val hasKey = secrets.hasApiKey()
         return when {
             !hasKey -> Capability("model", "模型 Key", CapabilityState.NEEDS_ACTION, "请在设置中填写用户 Key")
@@ -156,10 +156,10 @@ public object ReadinessProbe {
                 "model",
                 "模型 Key",
                 CapabilityState.NEEDS_ACTION,
-                "已保存 Key，但网关地址未配置（本构建未预置发布配置）",
+                "服务配置缺失，请更新应用",
             )
             model.isEmpty() ->
-                Capability("model", "模型 Key", CapabilityState.NEEDS_ACTION, "已保存 Key，但模型名未配置")
+                Capability("model", "模型 Key", CapabilityState.NEEDS_ACTION, "服务配置缺失，请更新应用")
             else -> Capability(
                 "model",
                 "模型 Key",
@@ -194,7 +194,7 @@ public object ReadinessProbe {
         }
 }
 
-/** Release gateway configuration is intentionally empty until real values are supplied. */
+/** Public service configuration supplied at build time, never user credentials. */
 public object BuildConfigEndpoint {
     public val DEFAULT: String = com.esp32phone.agent.BuildConfig.DEFAULT_ENDPOINT
     public val MODEL: String = com.esp32phone.agent.BuildConfig.DEFAULT_MODEL
