@@ -4,19 +4,9 @@ name: android-ci
 # When this directory lives inside a larger repository, the root workflow must use
 # `uses: ./android-phone-agent/ci` (composite action) instead — see ci/root-workflow-sample.yml.
 
+# Build only when explicitly requested; source changes do not start cloud jobs.
 on:
   workflow_dispatch:
-  pull_request:
-    paths:
-      - "android/**"
-      - "protocol/**"
-      - "ci/**"
-      - "docs/**"
-  push:
-    branches: ["codex/android-agent-foundation"]
-    paths:
-      - "android/**"
-      - "protocol/**"
 
 permissions:
   contents: read

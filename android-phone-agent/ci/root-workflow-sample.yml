@@ -5,21 +5,14 @@ repository. GitHub only discovers workflows in the repository-root `.github/work
 root workflow must call into this directory. Reusable workflows cannot live in a subdirectory,
 but **composite actions can** — that is why `ci/action.yml` exists.
 
-Paste the following as `<repo-root>/.github/workflows/android-agent.yml` (adjust the branch
-filter to the development branch). Codex owns this file; this copy is only a reference.
+Paste the following as `<repo-root>/.github/workflows/android-agent.yml` (select the development branch when manually running it). Codex owns this file; this copy is only a reference.
 
 ```yaml
 name: android-agent
 
+# Build only when explicitly requested; source changes do not start cloud jobs.
 on:
   workflow_dispatch:
-  push:
-    branches: ["codex/android-agent-foundation"]
-    paths:
-      - "android-phone-agent/**"
-  pull_request:
-    paths:
-      - "android-phone-agent/**"
 
 permissions:
   contents: read

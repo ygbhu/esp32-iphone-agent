@@ -1,11 +1,7 @@
 name: Android Agent
 
+# Build only when explicitly requested; source changes do not start cloud jobs.
 on:
-  push:
-    branches: [codex/android-agent-foundation]
-    paths:
-      - android-phone-agent/**
-      - .github/workflows/android-agent.yml
   workflow_dispatch:
 
 permissions:
