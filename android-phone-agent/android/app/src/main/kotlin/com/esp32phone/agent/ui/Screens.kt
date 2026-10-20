@@ -146,7 +146,7 @@ fun DeviceScreen(viewModel: AgentViewModel) {
     )
     Row(modifier = Modifier.padding(top = 8.dp)) {
         Button(onClick = {
-            viewModel.setBoardId(board)
+            viewModel.saveBoardId(board)
             if (secret.isNotBlank()) viewModel.importBindingSecret(secret.trim())
             secret = ""
         }) { Text("保存") }

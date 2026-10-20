@@ -102,7 +102,7 @@ class AgentViewModel(application: Application) : AndroidViewModel(application) {
         refresh()
     }
 
-    fun setBoardId(value: String) {
+    fun saveBoardId(value: String) {
         app.preferences.boundBoardId = value
         boardId = app.preferences.boundBoardId
         refresh()
