@@ -1,19 +1,21 @@
 # 实现状态（第一检查点快照）
 
-日期：2026-10-20。阶段：**M0 / 可构建工程基础**。这一份写的是"实际存在什么"，不是计划。
+日期：2026-10-20。阶段：**M0 / 可构建工程基础**。
+
+Codex 2026-10-20 更新：第二检查点与最后边界修复见 `codex-verification.md`、`checkpoint-2-report.md`。下面旧检查点描述以本更新为准。这一份写的是"实际存在什么"，不是计划。
 任何标 ❌ 的能力在代码里都默认禁用，界面显示"未实现/需要操作"，不会用成功占位。
 
 ## 1. 结论摘要
 
 | 项 | 状态 |
 |---|---|
-| 共享线格式（编码/分片/AEAD 封装）+ 跨语言向量 | ✅ 已实现，Kotlin 侧 110 项测试逐字节通过 |
-| Agent 核心（generation/单动作/帧新鲜度/预算/停止/去重） | ⚠️ **已实现但不放行**：第二轮复核仍列出 5 类缺陷（见 §6），不得称为"核心正式通过" |
+| 共享线格式（编码/分片/AEAD 封装）+ 跨语言向量 | ✅ 已实现，Kotlin 侧协议向量测试通过；最新完整测试统计见独立验证记录 |
+| Agent 核心（generation/单动作/帧新鲜度/预算/停止/去重） | ⚠️ **已实现但不放行**：已完成第二检查点修复；真实控制依旧禁用（见 §6），不得称为"核心正式通过" |
 | 原生 Kotlin/Compose APK 源码 | ✅ 已写；**本机未编译**（无 SDK，见 §4） |
 | Gradle Wrapper（8.11.1） | ✅ 已生成并本地实跑成功 |
-| 云端 CI（composite action + standalone workflow） | ✅ 已写；**未运行过** |
+| 云端 CI（composite action + standalone workflow） | ✅ 已写；**已在父仓库 GitHub Actions 成功运行** |
 | ESP32-S3 固件 | ❌ 未实现（下一独立检查点） |
-| 真机 / 模拟器 UI / 投影 / IME / BLE / USB HID | ❌ 全部未验证 |
+| 真机 / 模拟器 UI / 投影 / IME / BLE / USB HID | ⚠️ MuMu 启动与假设备测试已验证；其余未验证 |
 
 ## 2. 已实现（有代码、有测试或可复现命令）
 
@@ -95,9 +97,8 @@
 
 ## 4. 本机未执行的事（不得当作已通过）
 
-- **`assembleDebug` 未运行**：本机无 Android SDK；平台包许可文本需用户自行同意，
-  我按要求不代为接受，也没装 SDK。APK 是否存在只能由云端 CI 证明。
-- **任何模拟器测试未做**（MuMu 由 Codex 操作，Pi 不并行操作模拟器）。
+- **`assembleDebug` 未运行**：本机无 Android SDK；本机按用户要求不安装 SDK，APK 已由云端 CI 构建。
+- **Pi 未操作模拟器**；Codex 已完成 MuMu 启动与假设备检查，见独立验证记录。
 - **未接入真实网关**，未调用任何付费模型，未使用真实 Key。
 - **未烧录/擦除设备**，未操作 COM 端口，未安装输入法，未改手机系统设置。
 - **固件未编译**（下一检查点）；共享向量的 C++ 侧尚未实现。
@@ -114,26 +115,16 @@
   （`maxSdkVersion=30`）。
 - 无悬浮窗、无通知读取、无使用情况访问、无 ADB/Root 路径。
 
-## 6. 未完成的复核缺陷（第二轮，`docs/codex-checkpoint-review-2.md`）
+## 6. 核心复核收尾
 
-按用户指示先冻结 Android 源码以便云端构建，下列项**仍未修复**，因此
-**不得声称核心正式放行**：
+Pi 第二检查点修复五类问题，报告见 `checkpoint-2-report.md`。最后两个残留由 Codex 修复：
 
-1. 旧 device/screen/model/verifier 回调仍可能写入新 generation 的状态（`lastError`、
-   `pendingCommand`、`policy` 失效），而不是仅返回 `Stale`。
-2. `revalidate` 在最后一次 `screen` 调用返回后没有重新取时钟校验 bound 帧年龄，
-   慢速 screen 仍可放行过期输入（`current` 为未来时间也未拒绝）。
-3. `InputPermit` 只有 check-then-act：检查通过与 STOP 撤销/释放之间存在竞态，
-   需要与 `authority.stop` 同临界区的提交边界（`tryDispatch`），并定义 permit 是
-   单次提交还是可撤销多报告许可。
-4. 时序矩阵的 `VERIFY` 阶段实际未走到 verifier（用 tap 决策），属虚覆盖；
-   "旧回调保护新 policy" 测试缺少真正旧任务回返；需按 revoke/output 事件顺序断言。
-5. `StrictJson.parseObject(String)` 仍会直接接受原始孤立 UTF-16 surrogate；
-   需与 ByteArray 入口统一。文档需写清规范片数/固定 flags/每片精确长度/到片超时规则。
-   `Fragmenter` 超时诊断在 `reset()` 之后才计算 elapsed，日志时间不准。
+- 设备释放返回后，旧异常/预算分支重新核对任务身份，避免覆盖释放回调启动的新任务。
+- permit 在提交锁内核对调用者期望 generation；假设备还核对 request 与 permit 的 generation。
+- 新增四项回归，完整测试结果以 `codex-verification.md` 和最终云端报告为准。
 
-## 7. 下一步（按用户拆分）
+这些是基础核心代码的本地边界验证，不是产品或硬件放行。AgentCore 的完整任务生命周期尚未定义任意多线程线性化契约；后续 Android 接入需固定单一执行调度并专门验证生命周期竞态。EventLog 的 revoke listener 在提交锁外，不能凭其时间线证明所有并发事件的严格线性顺序；锁/latch 测试只证明本地提交与撤权互斥。
 
-1. Codex 触发云端开发版构建 → 得到开发 APK 与测试报告（仅证明工程可编译）。
-2. Pi 修复 §6 全部 5 项并补精确回归，重新跑 `:core:test`。
-3. 固件检查点：ESP32-S3 独立目标、C++ 侧共享向量、默认拒绝输入的入口。
+## 7. 下一检查点
+
+独立固件目标与 C++ 协议向量，然后逐项接入 BLE、MediaProjection、模型 HTTP、可选 IME 和校准。当前开发 APK 只演示界面和假模型/假设备；不得宣称可以操作微信。Pi 当前因上游模型服务 403 已空闲，Codex 接手本轮收尾，未持续后台开发。

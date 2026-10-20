@@ -12,6 +12,7 @@ import com.esp32phone.agent.agent.ScreenSource
 import com.esp32phone.agent.agent.StopController
 import com.esp32phone.agent.control.HidAction
 import com.esp32phone.agent.control.ModelDecision
+import com.esp32phone.agent.protocol.Crypto
 import com.esp32phone.agent.protocol.ErrorCode
 import java.util.Collections
 import java.util.concurrent.atomic.AtomicLong
@@ -170,12 +171,10 @@ public class RecordedAction(
 )
 
 /**
- * Device double with three separate injection points (entry, just before the HID report, and
- * after the report but before the ack) so a stop can be scheduled at any of them with a real
- * thread interleaving.
- *
- * It implements the [DeviceSink] contract: it re-checks the permit itself, and any call with a
- * stale permit is recorded as a contract violation rather than quietly executed.
+ * Device double that follows the real [DeviceSink] contract: every HID report is committed
+ * through [com.esp32phone.agent.agent.InputPermit.tryDispatch], so the check and the local
+ * write share one critical section with `stop`. There is deliberately no "check then write"
+ * gap to exploit.
  */
 public class FakeDevice(
     private val clock: Clock,
@@ -190,14 +189,26 @@ public class FakeDevice(
     public var stopOutcome: DeviceOutcome = DeviceOutcome.Done
 
     public var onExecute: ((ActionRequest) -> Unit)? = null
+
+    /** Runs immediately before the commit boundary (deterministic interleaving point). */
     public var onBeforeOutput: ((ActionRequest) -> Unit)? = null
+
+    /** Runs after the report was committed (outside the critical section). */
     public var onAfterOutput: ((ActionRequest) -> Unit)? = null
 
     public var stopCalls: Int = 0
         private set
 
-    /** Calls where the sink received an already-revoked permit. Must stay 0. */
+    /** Commits refused because authority was revoked before the report was written. */
     public var stalePermitAttempts: Int = 0
+        private set
+
+    /** Permits used for a different command/action than they were issued for. Must stay 0. */
+    public var permitMismatches: Int = 0
+        private set
+
+    /** Requests whose digest did not match their payload. Must stay 0. */
+    public var digestViolations: Int = 0
         private set
 
     /** True if a stop request was issued while authority was still live (must stay false). */
@@ -209,22 +220,37 @@ public class FakeDevice(
         attempts.add(RecordedAction(request.commandId, request.generation, request.action, clock.nowMs(), request.observation.frameId))
         onExecute?.invoke(request)
 
-        if (!request.permit.isCurrent()) {
-            stalePermitAttempts += 1
-            log?.record(EventKind.ACK, request.generation, request.commandId, "rejected: stale permit")
-            return DeviceOutcome.Rejected(ErrorCode.NOT_CONTROLLER, "permit for generation ${request.generation} is not current")
+        val recomputed = Crypto.sha256(request.payload).copyOf(16)
+        if (!Crypto.constantTimeEquals(recomputed, request.actionDigest)) {
+            digestViolations += 1
+            log?.record(EventKind.ACK, request.generation, request.commandId, "rejected: digest mismatch")
+            return DeviceOutcome.Rejected(ErrorCode.INVALID_ACTION, "permit digest does not match payload")
         }
+        if (request.generation != request.permit.generation ||
+            !request.permit.matchesAction(request.commandId, request.actionDigest)
+        ) {
+            permitMismatches += 1
+            log?.record(EventKind.ACK, request.generation, request.commandId, "rejected: permit/action mismatch")
+            return DeviceOutcome.Rejected(ErrorCode.NOT_CONTROLLER, "permit does not authorise this action")
+        }
+
         onBeforeOutput?.invoke(request)
-        if (!request.permit.isCurrent()) {
+
+        val committed = request.permit.tryDispatch {
+            // Short, non-blocking local write only: this runs inside the authority's commit lock.
+            outputs.add(RecordedAction(request.commandId, request.generation, request.action, clock.nowMs(), request.observation.frameId))
+            log?.record(EventKind.OUTPUT, request.generation, request.commandId, request.action.operationName())
+        }
+        if (!committed) {
             stalePermitAttempts += 1
-            log?.record(EventKind.ACK, request.generation, request.commandId, "rejected: stale permit before output")
-            return DeviceOutcome.Rejected(ErrorCode.NOT_CONTROLLER, "permit for generation ${request.generation} is not current")
+            log?.record(EventKind.ACK, request.generation, request.commandId, "rejected: commit refused (revoked)")
+            return DeviceOutcome.Rejected(
+                ErrorCode.NOT_CONTROLLER,
+                "permit for generation ${request.generation} was revoked before the HID report",
+            )
         }
 
-        log?.record(EventKind.OUTPUT, request.generation, request.commandId, request.action.operationName())
-        outputs.add(RecordedAction(request.commandId, request.generation, request.action, clock.nowMs(), request.observation.frameId))
         onAfterOutput?.invoke(request)
-
         log?.record(EventKind.ACK, request.generation, request.commandId, "outcome=${outcome::class.simpleName}")
         return outcome
     }

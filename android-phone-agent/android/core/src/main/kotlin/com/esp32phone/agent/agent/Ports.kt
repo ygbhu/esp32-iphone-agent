@@ -47,7 +47,7 @@ public fun interface ModelClient {
 public class ActionRequest(
     public val commandId: Long,
     public val generation: Long,
-    /** Single-use, generation-bound token. The sink must re-check it before its first HID report. */
+    /** Revocable, generation- and action-bound dispatch permit. */
     public val permit: InputPermit,
     public val action: HidAction,
     /** Frame that authorises this action: verified again immediately before the call. */
@@ -55,6 +55,8 @@ public class ActionRequest(
     /** Frame the model actually looked at (may be older than [observation]). */
     public val decisionFrameId: Long,
     public val payload: ByteArray,
+    /** SHA-256(payload)[0..16); the permit only authorises this exact action. */
+    public val actionDigest: ByteArray,
 )
 
 public sealed class DeviceOutcome {
@@ -67,10 +69,13 @@ public sealed class DeviceOutcome {
 
 public interface DeviceSink {
     /**
-     * Contract: the sink must call [ActionRequest.permit].isCurrent() immediately before it
-     * emits its first HID report and abort with [DeviceOutcome.Rejected] (NOT_CONTROLLER)
-     * otherwise. The core already checks the permit before and after this call; the sink
-     * check covers the window between those two checks.
+     * Contract: every HID report this sink emits MUST be committed through
+     * [InputPermit.tryDispatch] (which shares a monitor with [StopController.stop]).
+     *
+     * A sink must NOT do `isCurrent()` and then write: that is the check-then-act race the
+     * permit exists to remove. It must also verify
+     * [InputPermit.matchesAction] for the request and require request.generation == permit.generation, and keep each dispatch short and
+     * non-blocking so a user stop is never delayed.
      */
     public fun execute(request: ActionRequest): DeviceOutcome
 

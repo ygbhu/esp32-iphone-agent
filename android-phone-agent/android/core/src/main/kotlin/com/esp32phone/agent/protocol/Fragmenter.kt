@@ -154,10 +154,13 @@ public class Reassembler(
 
         // Timeout is enforced on every fragment, not only via an external tick.
         if (buffer != null && nowMs - startedAtMs >= channel.fragmentTimeoutMs) {
+            // Capture the elapsed time *before* reset(): reset() clears startedAtMs and would
+            // otherwise report the absolute clock value as the elapsed duration.
+            val elapsed = nowMs - startedAtMs
             reset()
             throw ProtocolException(
                 ErrorCode.FRAGMENT_TIMEOUT,
-                "assembly timed out after ${nowMs - startedAtMs} ms",
+                "assembly timed out after $elapsed ms",
             )
         }
 

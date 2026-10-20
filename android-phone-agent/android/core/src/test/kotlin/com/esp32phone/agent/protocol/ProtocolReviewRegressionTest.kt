@@ -225,6 +225,39 @@ class ProtocolReviewRegressionTest {
     }
 
     @Test
+    fun `raw lone surrogates in the String entry point are rejected`() {
+        // The ByteArray entry decodes strict UTF-8; the String entry receives raw UTF-16 and
+        // must apply the same rule, otherwise the Kotlin and C++ parsers disagree.
+        for (bad in listOf("{\"a\":\"\uD800\"}", "{\"a\":\"\uDC00\"}", "{\"a\":\"\uD800x\"}")) {
+            try {
+                StrictJson.parseObject(bad)
+                fail("raw lone surrogate must be rejected")
+            } catch (e: ProtocolException) {
+                assertEquals(ErrorCode.INVALID_JSON, e.code)
+            }
+        }
+        // A well-formed pair is still accepted and preserved.
+        val parsed = StrictJson.parseObject("{\"a\":\"\uD83D\uDE00\"}")
+        assertEquals("\uD83D\uDE00", parsed.require("a").asString())
+    }
+
+    @Test
+    fun `fragment timeout reports the true elapsed time`() {
+        val reassembler = Reassembler(Channel.NORMAL, 23)
+        reassembler.onFragment(fragment(0, 2, 13, ByteArray(12) { 1 }), nowMs = 10_000)
+        try {
+            reassembler.onFragment(fragment(1, 2, 13, byteArrayOf(2)), nowMs = 12_500)
+            fail("timeout must be enforced")
+        } catch (e: ProtocolException) {
+            assertEquals(ErrorCode.FRAGMENT_TIMEOUT, e.code)
+            assertTrue(
+                e.message!!.contains("after 2500 ms"),
+                "elapsed must be measured before the slot is cleared: ${e.message}",
+            )
+        }
+    }
+
+    @Test
     fun `invalid utf8 and raw control characters are rejected`() {
         try {
             StrictJson.parseObject(byteArrayOf(0x7B, 0xC3.toByte(), 0x28, 0x7D))

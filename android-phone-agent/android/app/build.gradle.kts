@@ -13,8 +13,8 @@ android {
         applicationId = "com.esp32phone.agent"
         minSdk = 30
         targetSdk = 35
-        versionCode = 2
-        versionName = "0.1.0-dev2"
+        versionCode = 3
+        versionName = "0.1.0-dev3"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         // Release gateway values are NOT provided yet (no real gateway configuration exists).

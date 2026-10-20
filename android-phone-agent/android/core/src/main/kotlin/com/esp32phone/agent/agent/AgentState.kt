@@ -16,6 +16,15 @@ public fun interface Clock {
  * Stopping increments the generation *first*, so every in-flight decision, device command
  * or result callback carrying an older generation is dead on arrival. A late model response
  * or a late device callback can therefore never revive input (baseline §7).
+ *
+ * Local commit boundary: [stop] and [InputPermit.tryDispatch] share one short monitor, so a
+ * HID report can never be committed after the authority that authorised it was revoked.
+ * The monitor is only ever held for the generation counter and a short local write — never
+ * around screen capture, model calls, verification or a device acknowledgement.
+ *
+ * Scope warning: this is a **local App guarantee**. It cannot stop reports that the board has
+ * already been sent before it receives `stop`; the 300 ms / 1.5 s targets in the baseline are
+ * engineering goals that need hardware measurement, not something this lock proves.
  */
 public class StopController(initialGeneration: Long = 1) {
 
@@ -30,6 +39,9 @@ public class StopController(initialGeneration: Long = 1) {
 
     private val generation = AtomicLong(initialGeneration)
 
+    /** Guards the generation/revoked flags and the (short) local dispatch commit. */
+    private val commitLock = Any()
+
     @Volatile
     private var stopped: Boolean = false
 
@@ -39,41 +51,101 @@ public class StopController(initialGeneration: Long = 1) {
 
     /** Revokes all current authority and returns the new (dead) generation. */
     public fun stop(): Long {
-        stopped = true
-        val previous = generation.get()
-        val next = generation.incrementAndGet()
-        listener?.onAuthorityChanged(previous, next, ChangeKind.STOP)
+        val next = synchronized(commitLock) {
+            stopped = true
+            generation.incrementAndGet()
+        }
+        listener?.onAuthorityChanged(next - 1, next, ChangeKind.STOP)
         return next
     }
 
     /** Begins a new task: new generation, authority available again. */
     public fun beginNewTask(): Long {
-        stopped = false
-        val previous = generation.get()
-        val next = generation.incrementAndGet()
-        listener?.onAuthorityChanged(previous, next, ChangeKind.NEW_TASK)
+        val next = synchronized(commitLock) {
+            stopped = false
+            generation.incrementAndGet()
+        }
+        listener?.onAuthorityChanged(next - 1, next, ChangeKind.NEW_TASK)
         return next
     }
 
     public fun isCurrent(candidate: Long): Boolean = candidate == generation.get() && !stopped
 
     /**
-     * Issues a single-use token for one device write. The device sink must re-check
-     * [InputPermit.isCurrent] immediately before generating HID reports; the core checks it
-     * immediately before and after the call. Neither side alone is the contract.
+     * The only way to produce output for [expectedGeneration].
+     *
+     * [emit] runs inside the same monitor as [stop], so either the report is written while
+     * the generation is still valid, or it is never written at all — there is no window
+     * between "check" and "act".
+     *
+     * [emit] MUST be short and must not block (no I/O, no waiting on BLE callbacks): a slow
+     * block would delay a user stop.
+     *
+     * @return true when [emit] ran and the generation was current
+     */
+    internal fun dispatchIfCurrent(expectedGeneration: Long, emit: () -> Unit): Boolean =
+        synchronized(commitLock) {
+            if (stopped || generation.get() != expectedGeneration) {
+                return false
+            }
+            emit()
+            true
+        }
+
+    /**
+     * Issues a dispatch permit bound to one generation and one command/action.
+     *
+     * A permit is **revocable, not single-use**: one action legitimately needs several short
+     * HID reports (move, press, release), so the sink may call [InputPermit.tryDispatch]
+     * repeatedly — but every single report must go through it, and once authority is revoked
+     * every further dispatch fails.
      *
      * @return null when authority is already revoked
      */
-    public fun issuePermit(): InputPermit? =
-        if (stopped) null else InputPermit(this, generation.get())
+    public fun issuePermit(expectedGeneration: Long, commandId: Long, actionDigest: ByteArray): InputPermit? {
+        synchronized(commitLock) {
+            if (stopped || generation.get() != expectedGeneration) return null
+            return InputPermit(this, expectedGeneration, commandId, actionDigest.copyOf())
+        }
+    }
 }
 
-/** Generation-bound capability to produce HID output once. */
+/**
+ * Generation- and action-bound capability to emit HID reports.
+ *
+ * All output MUST go through [tryDispatch]; a bare [isCurrent] check followed by a write is a
+ * check-then-act race and is not a valid way to produce input.
+ */
 public class InputPermit internal constructor(
     private val authority: StopController,
     public val generation: Long,
+    public val commandId: Long,
+    private val actionDigest: ByteArray,
 ) {
+    @Volatile
+    private var dispatched: Int = 0
+
+    /** Number of committed reports (diagnostics/tests only). */
+    public val dispatchCount: Int get() = dispatched
+
+    /** Hint only; never use as a substitute for [tryDispatch]. */
     public fun isCurrent(): Boolean = authority.isCurrent(generation)
+
+    public fun matchesAction(commandId: Long, digest: ByteArray): Boolean =
+        commandId == this.commandId && java.security.MessageDigest.isEqual(actionDigest, digest)
+
+    /**
+     * Commits one short local HID report inside the authority's commit boundary.
+     *
+     * @return false when the generation was already revoked; [emit] did not run
+     */
+    public fun tryDispatch(emit: () -> Unit): Boolean {
+        val ran = authority.dispatchIfCurrent(generation) {
+            emit()
+            dispatched += 1
+        }
+        return ran
+    }
 }
 
 public enum class AgentState {

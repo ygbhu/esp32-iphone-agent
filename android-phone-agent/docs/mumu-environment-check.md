@@ -27,8 +27,8 @@ $adb = 'D:\Program Files\Netease\MuMu\nx_main\adb.exe'
 & $adb -s '127.0.0.1:16384' shell pm list features
 ```
 
-当前未获得本项目 APK，没有执行应用安装、界面、MediaProjection 或 IME 验证，也没有读取模拟器中的用户聊天/账户。后续由用户的云端 CI 生成 APK 后再安装测试，不在本机安装 Android 平台 SDK。
+已从 Actions 39363733573 下载并安装 dev2，App 在 Android15/API35 成功启动。完成首页未就绪提示、测试页假设备正常单步与执行前停止检查；设置页 SECURE 窗口标志及黑屏截图通过。证据位于本机 `.supervision/artifacts/39363733573/`（不提交源码库）。
 
-待执行：CI APK 安装/启动、中文界面、能力缺失提示、Key 设置、权限拒绝及撤销、MediaProjection 生命周期、IME 启用与调试编辑框。每项以实际实现和执行结果更新，不因环境连接成功而视为通过。
+UIAutomator dump 进程 exit139，未获得XML；App仍运行。未启用无障碍或Root，没有输入模型Key/绑定凭证。MediaProjection、IME尚未实现；Keystore、权限拒绝/撤销还未做运行测试。后续最终APK的复验结果见 `codex-verification.md`。
 
 ESP32 的 BLE、USB 枚举、校准、实际输入/释放以及停止时延仍需安卓真机。开发期间使用 ADB 安装和调试 APK，不允许将 ADB 变成产品的截图、Agent 或输入执行路线。

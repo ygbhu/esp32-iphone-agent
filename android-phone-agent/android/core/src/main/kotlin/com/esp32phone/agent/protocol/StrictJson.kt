@@ -177,6 +177,21 @@ public object StrictJson {
                         }
                     }
                     c.code < 0x20 -> fail("raw control character 0x${c.code.toString(16)} in string")
+                    //
+                    // Raw UTF-16 surrogates in the *String* entry point must follow the same
+                    // rule as UTF-8 bytes: a high surrogate needs its low partner, a lone low
+                    // surrogate is invalid. Without this the JVM and the C++ parser could
+                    // disagree about the same logical text.
+                    c.code in 0xD800..0xDBFF -> {
+                        val lowIndex = position + 1
+                        if (lowIndex >= text.length) fail("unpaired high surrogate at offset $position")
+                        val low = text[lowIndex]
+                        if (low.code !in 0xDC00..0xDFFF) fail("high surrogate not followed by a low surrogate")
+                        out.append(c)
+                        out.append(low)
+                        position += 2
+                    }
+                    c.code in 0xDC00..0xDFFF -> fail("lone low surrogate at offset $position")
                     else -> { out.append(c); position += 1 }
                 }
             }

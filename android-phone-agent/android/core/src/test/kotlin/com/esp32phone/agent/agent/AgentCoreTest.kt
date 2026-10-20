@@ -528,17 +528,32 @@ class AgentCoreTest {
     }
 
     @Test
-    fun `a late stop cannot invalidate the next task's observation policy`() {
+    fun `a stale callback cannot invalidate the next task's observation policy`() {
+        // Real dead-generation return: the first task's model callback stops the task and
+        // starts a second one before returning its decision.
         val rig = Rig().start()
+        var newGeneration = -1L
+        var fired = false
+        rig.model.onDecide = {
+            if (!fired) {
+                fired = true
+                rig.core.stop("stop while thinking")
+                newGeneration = rig.core.beginTask("task two", rig.clock.nowMs())
+            }
+        }
         rig.clock.advance(5)
-        assertTrue(rig.step() is StepResult.Executed)
-        // Old generation is revoked by a resume; a stale callback for the old generation must
-        // not clear the new task's bound epoch.
-        val oldGeneration = rig.core.currentGeneration
-        rig.core.resumeAfterPause()
+        val first = rig.core.step(rig.clock.nowMs())
+        assertTrue(first is StepResult.Stale, "the dead decision must be dropped, got $first")
+        assertEquals(null, rig.core.lastError, "a dead callback must not write lastError")
+        assertEquals(AgentState.IDLE, rig.core.state)
+
         rig.clock.advance(5)
-        assertTrue(rig.step() is StepResult.Executed)
-        assertTrue(!rig.authority.isCurrent(oldGeneration))
-        assertEquals(2, rig.device.outputs.size, "new task must still be able to act")
+        val second = rig.core.step(rig.clock.nowMs())
+        assertTrue(
+            second is StepResult.Executed,
+            "the new task must still be able to observe and act, got $second",
+        )
+        assertEquals(newGeneration, rig.core.ownedGeneration)
+        assertEquals(1, rig.device.outputs.size)
     }
 }

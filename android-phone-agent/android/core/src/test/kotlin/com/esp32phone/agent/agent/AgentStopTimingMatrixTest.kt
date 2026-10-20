@@ -4,13 +4,14 @@ import com.esp32phone.agent.agent.AgentBudget
 import com.esp32phone.agent.agent.AgentCore
 import com.esp32phone.agent.agent.AgentState
 import com.esp32phone.agent.agent.DeviceOutcome
+import com.esp32phone.agent.agent.LiveObservation
 import com.esp32phone.agent.agent.ObservationPolicy
 import com.esp32phone.agent.agent.PauseReason
 import com.esp32phone.agent.agent.StepResult
 import com.esp32phone.agent.agent.StopController
-import com.esp32phone.agent.agent.UnavailableVerifier
 import com.esp32phone.agent.agent.VerificationVerdict
 import com.esp32phone.agent.agent.Verifier
+import com.esp32phone.agent.control.ModelDecision
 import com.esp32phone.agent.harness.EventKind
 import com.esp32phone.agent.harness.EventLog
 import com.esp32phone.agent.harness.FakeDevice
@@ -28,37 +29,56 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 /**
- * STOP / late-response timing matrix (checklist §5: "首轮至少 100 个时序组合").
+ * STOP / late-response timing matrix (checklist §5 "首轮至少 100 个时序组合").
  *
- * Each combination injects a stop (and, where relevant, a clock jump) at a specific *phase*
- * of one step, and the assertions are about the recorded event order:
+ * Each combination injects a stop at a specific *phase* of one step and varies the clock
+ * behaviour and the device outcome. The assertions are about the recorded event order and
+ * about the phases actually being reached — not about the number of green tests:
  *
- *  P1  no OUTPUT event appears after a REVOKE event that killed its generation;
+ *  P1  no OUTPUT event ever appears after the REVOKE of its generation;
  *  P2  the device stop request is only sent after authority was revoked;
- *  P3  a control stop issued during `model`, `verify`, `execute_entry`, `output` or `ack`
- *      leaves the task STOPPED and never yields success;
- *  P4  no HID output is produced twice for the same command id;
- *  P5  the sink never receives an already-revoked permit (the core, not the double, must
- *      prevent that).
+ *  P3  every device call either commits exactly one report or is refused (no third path);
+ *  P4  command ids are never reused;
+ *  P5  after a stop the task is never COMPLETED/EXECUTING;
+ *  P6  the VERIFY phase really calls the verifier (a stop there still wins);
+ *  P7  Accepted/Unknown are never reported as Executed/Completed.
  *
- * Separate tests at the bottom use real threads and latches for the cases that only a true
- * interleaving can expose.
+ * The phase coverage is asserted explicitly, so a combination that silently fails to reach
+ * its target phase fails the test instead of passing vacuously.
  */
 class AgentStopTimingMatrixTest {
 
     private enum class Phase { BEFORE_STEP, OBSERVE, MODEL, VERIFY, EXECUTE_ENTRY, OUTPUT, ACK, AFTER_STEP }
 
-    private enum class ClockJump { NONE, DURING_MODEL, BEFORE_EXECUTION }
+    private enum class ClockJump { NONE, DURING_MODEL, DURING_SCREEN, BEFORE_EXECUTION }
 
     private data class Combo(
         val phase: Phase,
-        val stopFirst: Boolean,
+        val injectStop: Boolean,
         val clockJump: ClockJump,
         val outcome: DeviceOutcome,
-        val rotateDuringModel: Boolean,
     ) {
+        val rotate: Boolean get() = phase == Phase.MODEL
+
         override fun toString(): String =
-            "phase=$phase stopFirst=$stopFirst clock=$clockJump outcome=${outcome::class.simpleName} rotate=$rotateDuringModel"
+            "phase=$phase stop=$injectStop clock=$clockJump outcome=${outcome::class.simpleName}"
+    }
+
+    private class MutableVerifier(initial: Verifier) : Verifier {
+        private var delegate: Verifier = initial
+
+        @Volatile
+        var calls: Int = 0
+            private set
+
+        fun set(verifier: Verifier) {
+            delegate = verifier
+        }
+
+        override fun verify(observation: LiveObservation, expected: String): VerificationVerdict {
+            calls += 1
+            return delegate.verify(observation, expected)
+        }
     }
 
     private class World(val combo: Combo) {
@@ -66,10 +86,13 @@ class AgentStopTimingMatrixTest {
         val clock = ManualClock(1_000)
         val authority = StopController()
         val screen = FakeScreenSource(clock, log)
-        val model = FakeModel(tapAction(), log)
+        val model = FakeModel(
+            if (combo.phase == Phase.VERIFY) doneDecision() else tapAction(),
+            log,
+        )
         val device = FakeDevice(clock, authority, log)
         val budget = AgentBudget()
-        val mutableVerifier: MutableVerifier = MutableVerifier(ALWAYS_SATISFIED)
+        val verifier = MutableVerifier { _, _ -> VerificationVerdict.Satisfied }
         val core = AgentCore(
             clock = clock,
             screen = screen,
@@ -77,20 +100,32 @@ class AgentStopTimingMatrixTest {
             device = device,
             budget = budget,
             authority = authority,
-            verifier = mutableVerifier,
+            verifier = verifier,
             policy = ObservationPolicy(),
         )
+
         var stopIssued = false
         var result: StepResult? = null
+
+        /** Phases actually executed during the run (including the final step). */
+        val reached = HashSet<Phase>()
+
+        /** Every phase the injection hook was invoked from. */
+        val phasesObserved = LinkedHashSet<Phase>()
 
         init {
             authority.logRevokes(log)
         }
 
-        fun stopNow(reason: String = "test stop") {
+        fun stopNow() {
             if (stopIssued) return
             stopIssued = true
-            core.stop(reason)
+            core.stop("test stop")
+        }
+
+        /** Advances the clock by more than the freshness budget. */
+        fun jumpClock() {
+            clock.advance(ObservationPolicy.DEFAULT_MAX_FRAME_AGE_MS + 500)
         }
     }
 
@@ -103,14 +138,10 @@ class AgentStopTimingMatrixTest {
             DeviceOutcome.Unknown("receipt lost"),
         )
         for (phase in Phase.entries) {
-            for (stopFirst in listOf(true, false)) {
+            for (injectStop in listOf(true, false)) {
                 for (clockJump in ClockJump.entries) {
                     for (outcome in outcomes) {
-                        for (rotate in listOf(false, true)) {
-                            // keep the matrix focused: rotation only matters around the model call
-                            if (rotate && phase != Phase.MODEL && phase != Phase.EXECUTE_ENTRY) continue
-                            combos.add(Combo(phase, stopFirst, clockJump, outcome, rotate))
-                        }
+                        combos.add(Combo(phase, injectStop, clockJump, outcome))
                     }
                 }
             }
@@ -121,105 +152,138 @@ class AgentStopTimingMatrixTest {
     private fun run(world: World) {
         val combo = world.combo
         world.device.outcome = combo.outcome
-
-        fun injectAt(phase: Phase, action: () -> Unit) {
-            if (combo.phase == phase) action()
+        world.verifier.set { _, _ ->
+            world.reached += Phase.VERIFY
+            injectAt(world, Phase.VERIFY) { world.stopNow() }
+            VerificationVerdict.Satisfied
         }
 
         world.screen.onObserve = {
-            injectAt(Phase.OBSERVE) { if (combo.stopFirst) world.stopNow() }
+            world.reached += Phase.OBSERVE
+            world.phasesObserved += Phase.OBSERVE
+            if (combo.clockJump == ClockJump.DURING_SCREEN) world.jumpClock()
+            injectAt(world, Phase.OBSERVE) { world.stopNow() }
         }
 
         world.model.onDecide = {
-            if (combo.rotateDuringModel) world.screen.rotation = 1
-            if (combo.clockJump == ClockJump.DURING_MODEL) world.clock.advance(600_001)
-            injectAt(Phase.MODEL) {
-                // stop while the model response is still in the harness (same thread, after the
-                // decision exists but before the core regains control)
-                world.stopNow()
-            }
+            world.reached += Phase.MODEL
+            if (combo.rotate) world.screen.rotation = 1
+            if (combo.clockJump == ClockJump.DURING_MODEL) world.jumpClock()
+            injectAt(world, Phase.MODEL) { world.stopNow() }
         }
 
         world.device.onExecute = {
-            injectAt(Phase.EXECUTE_ENTRY) { world.stopNow() }
+            world.reached += Phase.EXECUTE_ENTRY
+            injectAt(world, Phase.EXECUTE_ENTRY) { world.stopNow() }
         }
         world.device.onBeforeOutput = {
-            injectAt(Phase.OUTPUT) { world.stopNow() }
+            world.reached += Phase.OUTPUT
+            injectAt(world, Phase.OUTPUT) { world.stopNow() }
         }
         world.device.onAfterOutput = {
-            injectAt(Phase.ACK) { world.stopNow() }
+            world.reached += Phase.ACK
+            injectAt(world, Phase.ACK) { world.stopNow() }
         }
 
         if (combo.phase == Phase.BEFORE_STEP) {
             world.core.beginTask("tap the test button", world.clock.nowMs())
-            world.stopNow()
+            world.reached += Phase.BEFORE_STEP
+            if (combo.injectStop) world.stopNow()
         } else {
             world.core.beginTask("tap the test button", world.clock.nowMs())
         }
 
-        if (combo.clockJump == ClockJump.BEFORE_EXECUTION) world.clock.advance(600_001)
+        if (combo.clockJump == ClockJump.BEFORE_EXECUTION) world.jumpClock()
         world.clock.advance(5)
-        val first = world.core.step(world.clock.nowMs())
+        world.result = world.core.step(world.clock.nowMs())
 
-        if (combo.phase == Phase.AFTER_STEP) world.stopNow()
+        if (combo.phase == Phase.AFTER_STEP) {
+            world.reached += Phase.AFTER_STEP
+            if (combo.injectStop) world.stopNow()
+        }
 
         // A second step must never produce extra input after a stop.
-        world.clock.advance(5)
-        val second = world.core.step(world.clock.nowMs())
-
         if (world.stopIssued) {
+            world.clock.advance(5)
+            val after = world.core.step(world.clock.nowMs())
             assertTrue(
-                second is StepResult.Stale || second is StepResult.NoWork,
-                "$combo: stepping continued after stop with $second",
-            )
-        }
-        if (first is StepResult.Executed) {
-            assertEquals(
-                1,
-                world.device.outputs.count { it.commandId == first.commandId },
-                "$combo: duplicate output for one command",
-            )
-        }
-        if (combo.outcome is DeviceOutcome.Accepted) {
-            assertTrue(
-                first !is StepResult.Executed && first !is StepResult.Completed,
-                "$combo: Accepted must never be reported as execution success, got $first",
-            )
-        }
-        if (combo.outcome is DeviceOutcome.Unknown) {
-            assertTrue(
-                first !is StepResult.Executed && first !is StepResult.Completed,
-                "$combo: Unknown must never be reported as success, got $first",
+                after is StepResult.Stale || after is StepResult.NoWork,
+                "$combo: stepping continued after stop with $after",
             )
         }
     }
 
+    private fun injectAt(world: World, phase: Phase, action: () -> Unit) {
+        world.phasesObserved += phase
+        if (world.combo.phase == phase && world.combo.injectStop) action()
+    }
+
     private fun assertProperties(world: World) {
         val combo = world.combo
-        // P1: nothing may be written after its generation was revoked.
+
+        // P1: no report may be committed after its generation was revoked.
         val dead = world.log.outputsWithDeadGeneration()
-        assertTrue(dead.isEmpty(), "$combo: output after revoke: ${dead}\n${world.log.describe()}")
-        // P2: device stop after revoke only.
+        assertTrue(dead.isEmpty(), "$combo: output after revoke: $dead\n${world.log.describe()}")
+
+        // P2: the device stop request is only sent after the revoke.
         assertTrue(!world.device.stopWhileAuthorityLive, "$combo: device stop before revoke")
-        // P5: every execute call either produced output under a live permit or was refused
-        // because the permit had already been revoked. No third outcome is allowed.
+
+        // P3: every device call either committed one report or was refused.
         assertEquals(
             world.device.attempts.size,
             world.device.outputs.size + world.device.stalePermitAttempts,
             "$combo: unexpected device call outcome",
         )
-        // P3: after a stop the task must not be COMPLETED and must not still be executing.
+        assertEquals(0, world.device.digestViolations, "$combo: digest mismatch")
+        assertEquals(0, world.device.permitMismatches, "$combo: permit/action mismatch")
+
+        // P4: unique command ids.
+        val ids = world.device.attempts.map { it.commandId }
+        assertEquals(ids.size, ids.toSet().size, "$combo: duplicate command ids")
+
+        // P5: after a stop the task must never look successful or still running.
         if (world.stopIssued) {
             assertTrue(
                 world.core.state == AgentState.STOPPED || world.core.state == AgentState.PAUSED,
                 "$combo: state after stop was ${world.core.state}\n${world.log.describe()}",
             )
+            val result = world.result
+            assertTrue(
+                result !is StepResult.Completed,
+                "$combo: a stopped task must not report Completed, got $result",
+            )
         }
-        // P4: unique command ids.
-        val ids = world.device.attempts.map { it.commandId }
-        assertEquals(ids.size, ids.toSet().size, "$combo: duplicate command ids")
-        // Model call budget must never be exceeded.
-        assertTrue(world.budget.modelCalls <= 90)
+
+        // P6: the VERIFY phase must really invoke the verifier. Clock jumps that happen
+        // *before* verification legitimately abort earlier (they age the bound frame during
+        // revalidation), so precision requires naming those combinations explicitly.
+        val verifyPhaseShouldReachVerifier = combo.phase == Phase.VERIFY &&
+            combo.clockJump != ClockJump.DURING_MODEL &&
+            combo.clockJump != ClockJump.DURING_SCREEN
+        if (verifyPhaseShouldReachVerifier) {
+            assertTrue(world.verifier.calls >= 1, "$combo: verifier was not reached")
+        }
+        if (combo.phase == Phase.VERIFY && combo.injectStop && verifyPhaseShouldReachVerifier) {
+            assertEquals(1, world.verifier.calls, "$combo: verifier must run exactly once")
+            assertTrue(
+                world.result is StepResult.Stale,
+                "$combo: a stop inside the verifier must not complete, got ${world.result}",
+            )
+            assertEquals(AgentState.STOPPED, world.core.state)
+        }
+        if (combo.phase != Phase.VERIFY) {
+            assertEquals(0, world.verifier.calls, "$combo: verifier called without a done decision")
+        }
+
+        // P7: Accepted/Unknown are never execution success. Only meaningful when the combo
+        // actually issued a device command (VERIFY combos end with a done decision instead).
+        val deviceWasCalled = world.device.attempts.isNotEmpty()
+        if (deviceWasCalled && (combo.outcome is DeviceOutcome.Accepted || combo.outcome is DeviceOutcome.Unknown)) {
+            assertTrue(
+                world.result !is StepResult.Executed && world.result !is StepResult.Completed,
+                "$combo: ${combo.outcome::class.simpleName} reported as success: ${world.result}",
+            )
+        }
     }
 
     @Test
@@ -227,6 +291,8 @@ class AgentStopTimingMatrixTest {
         val combos = matrix()
         assertTrue(combos.size >= 100, "matrix must have >= 100 combinations, had ${combos.size}")
         assertEquals(combos.size, combos.toSet().size, "combinations must be distinct")
+        // Every phase must actually be represented.
+        assertEquals(Phase.entries.toSet(), combos.map { it.phase }.toSet())
     }
 
     @Test
@@ -239,22 +305,64 @@ class AgentStopTimingMatrixTest {
     }
 
     @Test
-    fun `stop without a stop never loses the normal path`() {
-        // Sanity check that the matrix's "no stop" combinations still execute exactly once,
-        // so the tests above cannot pass by never executing anything.
-        var executed = 0
-        for (combo in matrix()) {
-            if (combo.phase == Phase.ACK || combo.phase == Phase.OUTPUT || combo.phase == Phase.EXECUTE_ENTRY) continue
+    fun `each injected phase is really reached`() {
+        // Coverage guard: if a hook stopped firing, the matrix above would silently pass.
+        val targets = listOf(Phase.OBSERVE, Phase.MODEL, Phase.VERIFY, Phase.EXECUTE_ENTRY, Phase.OUTPUT, Phase.ACK)
+        for (target in targets) {
+            val combo = Combo(target, injectStop = true, clockJump = ClockJump.NONE, outcome = DeviceOutcome.Done)
             val world = World(combo)
             run(world)
-            if (world.device.outputs.isNotEmpty()) executed += 1
+            assertTrue(
+                world.reached.contains(target),
+                "phase $target was never reached; hooks may be dead\n${world.log.describe()}",
+            )
         }
-        assertTrue(executed > 0, "at least some combinations must reach the device")
+    }
+
+    @Test
+    fun `the no stop control group still executes`() {
+        var executed = 0
+        for (combo in matrix()) {
+            if (combo.injectStop) continue
+            if (combo.clockJump != ClockJump.NONE) continue
+            if (combo.outcome !is DeviceOutcome.Done) continue
+            if (combo.phase == Phase.VERIFY) continue
+            // These combos rotate the screen by design, which correctly pauses the task.
+            if (combo.rotate) continue
+            val world = World(combo)
+            run(world)
+            if (world.result is StepResult.Executed) executed += 1
+            assertEquals(1, world.device.outputs.size, "$combo: the clean path must write exactly one report")
+        }
+        assertTrue(executed >= 5, "the clean path must be exercised, only $executed combos executed")
+    }
+
+    @Test
+    fun `the no stop control group completes a verified done`() {
+        val combo = Combo(Phase.VERIFY, injectStop = false, clockJump = ClockJump.NONE, outcome = DeviceOutcome.Done)
+        val world = World(combo)
+        run(world)
+        assertEquals(1, world.verifier.calls, "the verifier must run for a done decision")
+        assertTrue(world.result is StepResult.Completed, "got ${world.result}")
+        assertEquals(AgentState.COMPLETED, world.core.state)
+        assertEquals(0, world.device.outputs.size, "a done decision writes no HID report")
+    }
+
+    @Test
+    fun `a clock jump during capture is never authorised`() {
+        for (phase in Phase.entries) {
+            val combo = Combo(phase, injectStop = false, clockJump = ClockJump.DURING_SCREEN, outcome = DeviceOutcome.Done)
+            val world = World(combo)
+            run(world)
+            if (world.result is StepResult.Executed || world.result is StepResult.Completed) {
+                throw AssertionError("$combo: an aged observation was authorised: ${world.result}")
+            }
+        }
     }
 
     // ---------------------------------------------------------------------------------
-    // Genuine concurrency: a second thread issues the stop while the first is blocked inside
-    // the injected phase. These are the cases a sequential clock advance cannot produce.
+    // Genuine concurrency: a second thread issues the stop while the first is blocked in
+    // the injected phase. A sequential clock advance cannot produce these interleavings.
     // ---------------------------------------------------------------------------------
 
     private fun raceTest(
@@ -262,7 +370,7 @@ class AgentStopTimingMatrixTest {
         outcome: DeviceOutcome,
         block: (World, CountDownLatch, CountDownLatch) -> Unit,
     ): World {
-        val combo = Combo(phase, stopFirst = false, clockJump = ClockJump.NONE, outcome = outcome, rotateDuringModel = false)
+        val combo = Combo(phase, injectStop = false, clockJump = ClockJump.NONE, outcome = outcome)
         val world = World(combo)
         world.device.outcome = outcome
         val entered = CountDownLatch(1)
@@ -275,7 +383,7 @@ class AgentStopTimingMatrixTest {
         val stepper = Thread { world.result = world.core.step(world.clock.nowMs()) }
         stepper.start()
         assertTrue(entered.await(5, TimeUnit.SECONDS), "injected phase $phase was never reached")
-        world.stopNow("concurrent stop during $phase")
+        world.stopNow()
         proceed.countDown()
         stepper.join(10_000)
         assertTrue(!stepper.isAlive, "step did not return after the stop")
@@ -283,31 +391,16 @@ class AgentStopTimingMatrixTest {
         return world
     }
 
-    private val VERIFIER = ALWAYS_SATISFIED
-
-    private companion object {
-        val ALWAYS_SATISFIED: Verifier = Verifier { _, _ -> VerificationVerdict.Satisfied }
-    }
-
-    /** Verifier whose behaviour can be swapped per test (used by the verification race). */
-    private class MutableVerifier(private var delegate: Verifier) : Verifier {
-        fun set(verifier: Verifier) {
-            delegate = verifier
-        }
-
-        override fun verify(observation: com.esp32phone.agent.agent.LiveObservation, expected: String): VerificationVerdict =
-            delegate.verify(observation, expected)
-    }
-
     @Test
     fun `concurrent stop while blocked inside the model call`() {
         val world = raceTest(Phase.MODEL, DeviceOutcome.Done) { w, entered, proceed ->
             w.model.onDecide = {
+                w.reached += Phase.MODEL
                 entered.countDown()
                 proceed.await(5, TimeUnit.SECONDS)
             }
         }
-        assertTrue(world.result is StepResult.Stale, "late model decision must be dropped, got ${world.result}")
+        assertTrue(world.result is StepResult.Stale, "got ${world.result}")
         assertEquals(0, world.device.outputs.size)
         assertEquals(1, world.device.stopCalls)
         assertEquals(AgentState.STOPPED, world.core.state)
@@ -316,19 +409,16 @@ class AgentStopTimingMatrixTest {
     @Test
     fun `concurrent stop while blocked inside verification`() {
         val world = raceTest(Phase.VERIFY, DeviceOutcome.Done) { w, entered, proceed ->
-            // Model says done and the verifier blocks; the stop happens during verification.
             w.model.decision = doneDecision()
-            w.mutableVerifier.set { _, _ ->
+            w.verifier.set { _, _ ->
+                w.reached += Phase.VERIFY
                 entered.countDown()
                 proceed.await(5, TimeUnit.SECONDS)
                 VerificationVerdict.Satisfied
             }
         }
-        assertTrue(
-            world.result is StepResult.Stale,
-            "a stop during verification must not become COMPLETED, got ${world.result}",
-        )
-        assertTrue(world.core.state != AgentState.COMPLETED, "state must not be COMPLETED")
+        assertEquals(1, world.verifier.calls, "the verifier must actually have run")
+        assertTrue(world.result is StepResult.Stale, "got ${world.result}")
         assertEquals(AgentState.STOPPED, world.core.state)
     }
 
@@ -336,36 +426,33 @@ class AgentStopTimingMatrixTest {
     fun `concurrent stop while blocked at the device entry`() {
         val world = raceTest(Phase.EXECUTE_ENTRY, DeviceOutcome.Done) { w, entered, proceed ->
             w.device.onExecute = {
+                w.reached += Phase.EXECUTE_ENTRY
                 entered.countDown()
                 proceed.await(5, TimeUnit.SECONDS)
             }
         }
-        // The permit was valid at entry but must be stale after the stop; nothing may be written.
         assertEquals(0, world.device.outputs.size, "no HID report may follow the stop")
-        assertEquals(1, world.device.stalePermitAttempts, "the sink must see the revoked permit and refuse")
-        assertTrue(world.result is StepResult.Stale, "expected stale, got ${world.result}")
+        assertEquals(1, world.device.stalePermitAttempts)
+        assertTrue(world.result is StepResult.Stale, "got ${world.result}")
     }
 
     @Test
     fun `concurrent stop between the hid report and the acknowledgement`() {
         val world = raceTest(Phase.ACK, DeviceOutcome.Done) { w, entered, proceed ->
             w.device.onAfterOutput = {
+                w.reached += Phase.ACK
                 entered.countDown()
                 proceed.await(5, TimeUnit.SECONDS)
             }
         }
-        assertEquals(1, world.device.outputs.size, "the report itself was already emitted")
-        assertTrue(
-            world.result is StepResult.Stale,
-            "an outcome that arrived after the stop must be reported as unknown, got ${world.result}",
-        )
+        assertEquals(1, world.device.outputs.size, "the report was already committed")
+        assertTrue(world.result is StepResult.Stale, "got ${world.result}")
         assertEquals(AgentState.STOPPED, world.core.state)
-        assertTrue(world.core.lastError!!.contains("outcome unknown"))
+        assertTrue(world.core.lastError!!.contains("outcome unknown"), world.core.lastError!!)
     }
 
     @Test
-    fun `concurrency errors are reproducible`() {
-        // Same interleaving twice must produce the same event-kind sequence (no flaky coverage).
+    fun `concurrency results are reproducible`() {
         fun once(): List<EventKind> {
             val world = raceTest(Phase.MODEL, DeviceOutcome.Done) { w, entered, proceed ->
                 w.model.onDecide = {

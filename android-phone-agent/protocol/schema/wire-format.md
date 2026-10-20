@@ -161,18 +161,45 @@ App proof 绑定 board proof，防止反射；角色标签不同，防跨角色�
 payload 摘要用 SHA-256 前 16 字节比较（只在本机内存比较，不参与线格式）。
 会话重建后水位清空，但 App 侧不得据此重放旧队列（基线 §7）。
 
-8. 实施中相对基线的偏差与保守取舍
+## 8. 实施中相对基线的偏差与保守取舍
 
 1. 动作总时限取 4 s（基线给 8 s 上限），便于在 MTU=23 压力测试前留出停止余量。
 2. 组装超时先用 2000/1000 ms 工程初值，未实测。
 3. 未实现的功能（BLE 收发、USB HID 输出、MediaProjection、IME、模型真实调用）在代码与
    `docs/implementation-status.md` 中标为不可用/禁用，不做空实现冒充可用。
 
-## 9. 已知未完成项（第二轮复核，见 `docs/codex-checkpoint-review-2.md`）
+## 9. 本地提交临界区（App 侧约束，不是板子已停的证明）
 
-以下与线格式直接相关，**尚未修复**，不得视为已满足：
+`stop` 与 HID 输出提交必须互斥：App 侧的 `StopController` 用一个**只保护极短本地写入**的
+监视器，同时包住 generation 撤销/递增与 `InputPermit.tryDispatch`。因此在 App 本地，
+一次报告要么在撤销前写完，要么永远不会写，没有"检查后再生效"的窗口。
 
-1. `StrictJson.parseObject(String)` 入口仍会接受原始孤立 UTF-16 surrogate（ByteArray 入口已严格）。
-   两端解析器必须一致拒绝，否则同一字节流在 Kotlin 与 C++ 侧可能有不同解释。
-2. `Fragmenter` 超时诊断路径先 `reset()` 再计算 elapsed，导致日志里的时长不可信
-   （判定本身正确，只是诊断信息不准）。
+约束与边界：
+
+1. 监视器内只能有短、非阻塞的本地操作（例如把一条已编码报告交给 BLE 栈）。
+   截图、模型调用、验证器、设备 ACK 等慢操作 **绝不能** 放在这个临界区内，否则会推迟用户停止。
+2. permit 绑定 `generation + command_id + 动作摘要`，不能用于另一个动作。
+3. 它是**可撤销的多报告许可**，不是单次令牌：一次滑动需要多份短报告（移动/按下/移动/抬起），
+   每一份都必须单独通过 `tryDispatch`；撤销后每一次都失败。
+4. 这是 **App 本地保证**，不能推导出"板子在收到 STOP 之前已经停止输出"。从撤销到板子实际
+   释放仍依赖 BLE 送达与固件处理，200 ms / 1.5 s 只能作为待实测目标，不是已实现指标。
+5. 旧 generation 的回调（屏幕、模型、验证器、设备）到达时只能返回 `Stale`，不得写新任务任何
+   字段（state/lastError/pending/policy），也不得停止新 generation。
+
+## 10. 已关闭的第二轮复核项（本轮修复）
+
+以下项曾在 `docs/codex-checkpoint-review-2.md` 中列为未修复，本轮已修复并有可复现回归：
+
+1. 旧 generation 回调污染新任务状态、旧设备异常撤销新 generation →
+   `AgentGenerationIsolationTest`（device Done / device 异常 / screen 异常 / screen null /
+   model 异常 / verifier 迟到）均已覆盖。
+2. 新鲜度在最后一次截图返回后未重取时钟 → `revalidate` 在每次外部调用后重取时钟，
+   并同时校验 bound 帧与 current 帧的年龄/未来时间戳/epoch/旋转/尺寸；
+   回归：`a slow capture cannot authorise input on an aged observation` 等 4 项。
+3. permit 的 check-then-act → 与 `stop` 共用的提交临界区（`InputPermit.tryDispatch`），
+   回归：`stop waits for an in-flight short commit instead of interleaving with it`、
+   `concurrent stop and dispatch never commit a report after the revoke`（120 次交错）。
+4. 时序矩阵的 VERIFY 阶段虚覆盖 → 矩阵对 VERIFY 使用 `done` 决策 + 真实验证器，并新增
+   "每个注入阶段确实到达"的覆盖守卫。
+5. `StrictJson.parseObject(String)` 接受原始孤立 surrogate、分片超时诊断时间不准 →
+   两条均有精确回归（`raw lone surrogates ...`、`fragment timeout reports the true elapsed time`）。
